@@ -6,4 +6,4 @@ Raspberry Pi camera mount 3D printed from [Shapeways](https://www.shapeways.com/
 
 ## Photos
 
-![rpi-security-hardware 1](../master/images/rpi-security-hardware-1?raw=true)
+![rpi-security-hardware 1](../../master/images/rpi-security-hardware-1?raw=true)

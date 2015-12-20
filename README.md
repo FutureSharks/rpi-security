@@ -10,7 +10,9 @@ Features:
 Written in Python.
 
 Similar to:
+
   https://www.kickstarter.com/projects/vivienmuller/ulo/
+
   http://canary.is/
 
 ## Mobile phone detection

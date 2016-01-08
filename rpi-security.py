@@ -142,7 +142,7 @@ def scan_network(scan_interval, mac_addresses, network_address):
 
     while True:
         if pb_search_pushes('disable') == True:
-            alarm_state = 'disabled'
+            new_alarm_state = 'disabled'
         else:
             log_message(message='Starting network scan, interval is %s' % scan_interval, source=logging_source, message_type='debug')
             if print_from_arp_cache(arp_cache):
@@ -163,10 +163,10 @@ def scan_network(scan_interval, mac_addresses, network_address):
                     else:
                         log_message(message='ARP ping of MAC addres %s unsuccessful' % mac_address, source=logging_source, message_type='debug')
                         new_alarm_state = 'armed'
-            if new_alarm_state != alarm_state:
-                alarm_state = new_alarm_state
-                log_message("rpi-security is now %s" % alarm_state, source=logging_source)
-                pb_send_notifcation(body = datetime.now().strftime("%b %d %H:%M:%S"), title = 'rpi-security: %s' % alarm_state)
+        if new_alarm_state != alarm_state:
+            alarm_state = new_alarm_state
+            log_message("rpi-security is now %s" % alarm_state, source=logging_source)
+            pb_send_notifcation(body = datetime.now().strftime("%b %d %H:%M:%S"), title = 'rpi-security: %s' % alarm_state)
         time.sleep(scan_interval)
 
 def motion_detected(pir_pin):

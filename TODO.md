@@ -6,6 +6,8 @@ Adjust camera settings if dark
 
 Fix white balance
 
+Make it a pip module
+
 Measure and tweak power consumption:
   - Lower CPU speed?
   - Enable iwconfig power management?
@@ -18,12 +20,15 @@ Take photo then check for MACs, then delete if required.
 
 Implement some form of LED status
 
+Use two logger handlers, one for syslog, one for console output.
+
 Add init script
 
 Change import order to stop delay when doing first start. Import scapy and slow modules inside functions.
 
 Use a pushbullet channel?
 
+Tidy up all global vars or use another method
 
 A separate thread does photo processing:
   - monitor photo list
@@ -33,6 +38,10 @@ A separate thread does photo processing:
   - continue to process photos as they come
   - rate limit notifications?
   - clean up old photos?
+
+Try to autofix connection errors like renew DHCP lease.
+
+Move everything to threads
 
 ~~Log message on alarm state transition~~
 

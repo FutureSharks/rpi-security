@@ -39,6 +39,8 @@ A separate thread does photo processing:
   - rate limit notifications?
   - clean up old photos?
 
+Fix shutdown problem
+
 Try to autofix connection errors like renew DHCP lease.
 
 Move everything to threads

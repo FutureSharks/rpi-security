@@ -24,12 +24,11 @@ requests.packages.urllib3.disable_warnings()
 from pushbullet import Pushbullet
 from ConfigParser import SafeConfigParser
 from threading import Thread, current_thread
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-from scapy.all import sniff
+from scapy.all import srp, Ether, ARP
 
 def parse_configfile(config_file):
     config = SafeConfigParser()
-    config.read(args.config_file)
+    config.read(config_file)
     return dict(config.items('main'))
 
 def get_network_address(interface_name):
@@ -38,14 +37,14 @@ def get_network_address(interface_name):
     interface_details = ip = ifaddresses(interface_name)
     my_network = IPNetwork('%s/%s' % (ip[2][0]['addr'], ip[2][0]['netmask']))
     network_address = my_network.cidr
-    log_message('Calculated network: %s' % network_address, 'debug')
-    return network_address
+    log_message('Calculated network: %s' % network_address, message_type='debug')
+    return str(network_address)
 
 def log_message(message, message_type = 'normal'):
-    global debug_enabled
-    if message_type == 'debug' and debug_enabled == False:
+    global config
+    if message_type == 'debug' and config['debug_enabled'] == False:
         return False
-    elif debug_enabled == True:
+    elif config['debug_enabled'] == True:
         print datetime.now().strftime("%b %d %H:%M:%S"), 'rpi-security(%s): %s' % (current_thread().getName(), message)
     else:
         syslog.syslog(message)
@@ -56,12 +55,12 @@ def flash_camera_led(flash_time = 0.25):
         GPIO.output(32,False)
 
 def take_photo(output_file):
-    global debug_enabled
-    time.sleep(2)
-    if debug_enabled:
+    global config
+    time.sleep(1)
+    if config['debug_enabled']:
         flash_camera_led()
-    camera.resolution = (2592, 1944)
-    camera.capture(output_file)
+    config['camera'].resolution = (2592, 1944)
+    config['camera'].capture(output_file)
     log_message("Captured image: %s" % output_file)
 
 def archive_photo(photo_path):
@@ -69,41 +68,43 @@ def archive_photo(photo_path):
     log_message(message='Archiving of photo complete: %s' % photo_path, message_type='debug')
     pass
 
+def pb_parse_exception(exception):
+    if type(exception) == requests.exceptions.RequestException:
+        return 'Requests exception: ' % exception
+    else:
+        try:
+            pb_error = ast.literal_eval(exception[0].encode('utf-8'))
+        except Exception as e:
+            return 'Unknown error: %s. Type: %s. Error: %s' % (e, type(exception), exception)
+        else:
+            return '%s(%s)' % (pb_error['error']['type'], pb_error['error']['message'])
+
 def pb_send_notifcation(body, title):
+    global config
     try:
-        push = pushbullet.push_note(title, body)
-    except requests.exceptions.RequestException as e:
-        log_message(message='Pushbullet failed to get pushes with RequestException %s' % e)
+        push = config['pushbullet'].push_note(title, body)
     except Exception as e:
-        pb_error = ast.literal_eval(e[0].encode('utf-8'))
-        log_message(message='Pushbullet notification failed to send with error %s(%s): "%s, %s"' % (pb_error['error']['type'], pb_error['error']['message'], title, body))
+        log_message(message='Pushbullet notification failed to send message "%s, %s" with exception: ' % (title, body, pb_parse_exception(e)))
     else:
         log_message(message='Pushbullet notification Sent: "%s, %s"' % (title, body))
 
 def pb_send_file(file_path):
     with open(file_path, "rb") as pic:
-        file_data = pushbullet.upload_file(pic, os.path.basename(file_path))
+        file_data = config['pushbullet'].upload_file(pic, os.path.basename(file_path))
     try:
-        push = pushbullet.push_file(**file_data)
-    except requests.exceptions.RequestException as e:
-        log_message(message='Pushbullet failed to send file %s  with RequestException %s' % (file_path, e))
-        return False
+        push = config['pushbullet'].push_file(**file_data)
     except Exception as e:
-        pb_error = ast.literal_eval(e[0].encode('utf-8'))
-        log_message(message='Pushbullet file failed to send with error %s(%s): %s' % (pb_error['error']['type'], pb_error['error']['message'], file_path))
-        return False
+        log_message(message='Pushbullet failed to send file %s with exception: %s' % (file_path, pb_parse_exception(e)))
     else:
         log_message('Pushbullet file sent: %s' % file_path)
         return True
 
 def get_pushes():
+    global config
     try:
-        pushes = pushbullet.get_pushes()
-    except requests.exceptions.RequestException as e:
-        log_message(message='Pushbullet failed to get pushes with RequestException %s' % e)
+        pushes = config['pushbullet'].get_pushes()
     except Exception as e:
-        pb_error = ast.literal_eval(e[0].encode('utf-8'))
-        log_message(message='Pushbullet failed to get pushes with error %s(%s)' % (pb_error['error']['type'], pb_error['error']['message']))
+        log_message(message='Pushbullet failed to get pushes with exception: %s' % pb_parse_exception(e))
     else:
         return pushes[1]
 
@@ -114,19 +115,50 @@ def pb_search_pushes(pushes, text):
             result = True
     return result
 
+def arp_ping_macs():
+    def _arp_ping(mac_address, ip_address):
+        result = False
+        answered,unanswered = srp(Ether(dst=mac_address)/ARP(pdst=ip_address), timeout=1, verbose=False)
+        if len(answered) > 0:
+            for reply in answered:
+                result = []
+                result.append(str(reply[0].pdst))
+                result = ', '.join(result)
+        return result
+    global config
+    for mac_address in config['mac_addresses']:
+        result = _arp_ping(mac_address, config['network_address'])
+        if result:
+            log_message('MAC %s responded to ARP ping with address %s' % (mac_address, result), message_type='debug')
+            break
+        else:
+            log_message('MAC %s did not respond to ARP ping' % mac_address, message_type='debug')
+
 def process_photos():
     global captured_photos
+    global alarm_state
+    log_message("thread running")
     while True:
         if len(captured_photos) > 0:
-            log_message(message='Starting to process photos', message_type='debug')
-            for photo in list(captured_photos):
-                log_message(message='Processing the photo: %s' % photo, message_type='debug')
-                if pb_send_file(photo):
-                    archive_photo(photo)
+            arp_ping_macs()
+            time.sleep(1)
+            now = time.time()
+            if now - alarm_state['last_packet'] < 30:
+                for photo in list(captured_photos):
+                    log_message(message='Removing photo as it is a false positive: %s' % photo, message_type='debug')
                     captured_photos.remove(photo)
-        time.sleep(10)
+            else:
+                log_message(message='Starting to process photos', message_type='debug')
+                for photo in list(captured_photos):
+                    log_message(message='Processing the photo: %s' % photo, message_type='debug')
+                    if pb_send_file(photo):
+                        archive_photo(photo)
+                        captured_photos.remove(photo)
+        time.sleep(5)
 
-def capture_packets(network_interface, mac_addresses):
+def capture_packets(network_interface, network_interface_mac, mac_addresses):
+    logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+    from scapy.all import sniff
     def update_time(packet):
         global alarm_state
         for mac_address in mac_addresses:
@@ -137,11 +169,13 @@ def capture_packets(network_interface, mac_addresses):
         log_message(message='Packet detected from %s' % str(alarm_state['last_packet_mac']), message_type='debug')
     def calculate_filter(mac_addresses):
         mac_string = ' or '.join(mac_addresses)
-        return '(wlan addr2 (%(mac_string)s) or wlan addr3 (%(mac_string)s)) and type mgt subtype probe-req' % { 'mac_string' : mac_string }
+        return '((wlan addr2 (%(mac_string)s) or wlan addr3 (%(mac_string)s)) and type mgt subtype probe-req) or (wlan addr1 %(network_interface_mac)s and wlan addr3 (%(mac_string)s))' % { 'mac_string' : mac_string, 'network_interface_mac' : network_interface_mac }
     while True:
+        log_message("thread running")
         sniff(iface=network_interface, store=0, prn=update_time, filter=calculate_filter(mac_addresses))
 
-def monitor_alarm_state():
+def monitor_alarm_state(network_address, mac_addresses):
+    log_message("thread running")
     global alarm_state
     last_pb_check = 0
     def send_status(alarm_state_dict):
@@ -160,9 +194,9 @@ def monitor_alarm_state():
             log_message("rpi-security is now %s" % alarm_state['current_state'])
             pb_send_notifcation(body = datetime.now().strftime("%b %d %H:%M:%S"), title = 'rpi-security: %s' % alarm_state['current_state'])
     while True:
-        time.sleep(10)
+        time.sleep(5)
         now = time.time()
-        if now - last_pb_check > 300:
+        if now - last_pb_check > 600:
             pushes = get_pushes()
             last_pb_check = time.time()
             if pushes:
@@ -174,12 +208,14 @@ def monitor_alarm_state():
                 elif alarm_state['current_state'] == 'disabled':
                     update_alarm_state('disarmed')
         if alarm_state['current_state'] != 'disabled':
-            if now - alarm_state['last_packet'] > 800:
+            if now - alarm_state['last_packet'] > 720:
                 update_alarm_state('armed')
+            elif now - alarm_state['last_packet'] > 700:
+                arp_ping_macs()
             else:
                 update_alarm_state('disarmed')
 
-def motion_detected(pir_pin):
+def motion_detected(n):
     global alarm_state
     current_state = alarm_state['current_state']
     if current_state == 'armed':
@@ -201,6 +237,16 @@ def check_monitor_mode(network_interface):
             result = True
     return result
 
+def get_interface_mac_addr(network_interface):
+    result = False
+    try:
+        f = open('/sys/class/net/%s/address' % network_interface, 'r')
+    except:
+        pass
+    else:
+        result = f.read().strip()
+    return result
+
 def exit(signal = None, frame = None):
     log_message("rpi-security stopping...")
     GPIO.cleanup()
@@ -209,21 +255,16 @@ def exit(signal = None, frame = None):
 def set_global_vars():
     global config
     config = parse_configfile(args.config_file)
-    global debug_enabled
-    debug_enabled = args.debug
-    global camera
-    camera = picamera.PiCamera()
-    global pushbullet
-    pushbullet = Pushbullet(config['pushbullet_access_token'])
-    global pir_pin
-    pir_pin = int(config['pir_pin'])
-    global network_interface
-    network_interface = config['network_interface']
-    global mac_addresses
+    config['debug_enabled'] = args.debug
+    try:
+        config['camera'] = picamera.PiCamera()
+    except Exception as e:
+        sys.exit('Camera module failed to intialise with error %s' % e)
+    config['pushbullet'] = Pushbullet(config['pushbullet_access_token'])
     if ',' in config['mac_addresses']:
-        mac_addresses = config['mac_addresses'].split(',')
+        config['mac_addresses'] = config['mac_addresses'].split(',')
     else:
-        mac_addresses = [ config['mac_addresses'] ]
+        config['mac_addresses'] = [ config['mac_addresses'] ]
     global alarm_state
     alarm_state = {
         'current_state': 'disarmed',
@@ -237,12 +278,15 @@ def set_global_vars():
 
 if __name__ == "__main__":
     set_global_vars()
-    if check_monitor_mode(network_interface) == False:
-        sys.exit('Interface %s does not exist or is not in monitor mode.' % network_interface)
-    monitor_alarm_state_thread = Thread(name='monitor_alarm_state', target=monitor_alarm_state)
+    if check_monitor_mode(config['network_interface']):
+        config['network_interface_mac'] = get_interface_mac_addr(config['network_interface'])
+        config['network_address'] = get_network_address('wlan0')
+    else:
+        sys.exit('Interface %s does not exist, is not in monitor mode or MAC address unknown.' % config['network_interface'])
+    monitor_alarm_state_thread = Thread(name='monitor_alarm_state', target=monitor_alarm_state, kwargs={'network_address': config['network_address'], 'mac_addresses': config['mac_addresses']})
     monitor_alarm_state_thread.daemon
     monitor_alarm_state_thread.start()
-    capture_packets_thread = Thread(name='capture_packets', target=capture_packets, kwargs={'network_interface': network_interface, 'mac_addresses': mac_addresses})
+    capture_packets_thread = Thread(name='capture_packets', target=capture_packets, kwargs={'network_interface': config['network_interface'], 'network_interface_mac': config['network_interface_mac'], 'mac_addresses': config['mac_addresses']})
     capture_packets_thread.daemon = True
     capture_packets_thread.start()
     process_photos_thread = Thread(name='process_photos', target=process_photos)
@@ -252,8 +296,8 @@ if __name__ == "__main__":
     time.sleep(2)
     try:
         log_message("rpi-security running")
-        GPIO.setup(pir_pin, GPIO.IN)
-        GPIO.add_event_detect(pir_pin, GPIO.RISING, callback=motion_detected)
+        GPIO.setup(int(config['pir_pin']), GPIO.IN)
+        GPIO.add_event_detect(int(config['pir_pin']), GPIO.RISING, callback=motion_detected)
         while 1:
             time.sleep(100)
     except KeyboardInterrupt:

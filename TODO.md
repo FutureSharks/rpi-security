@@ -1,58 +1,17 @@
 # rpi-sec to do list
 
-Finish installation script
+Finish installation script, make it a pip module, add init script.
 
-Adjust camera settings if dark
-
-Fix white balance
-
-Make it a pip module
-
-Measure and tweak power consumption:
-  - Lower CPU speed?
-  - Enable iwconfig power management?
-
-Handle file open errors (camera photos and config file)
-
-Use jesse lite distro?
-
-Take photo then check for MACs, then delete if required.
-
-Implement some form of LED status
-
-Use two logger handlers, one for syslog, one for console output.
-
-Add init script
-
-Change import order to stop delay when doing first start. Import scapy and slow modules inside functions.
-
-Use a pushbullet channel?
-
-Tidy up all global vars or use another method
-
-A separate thread does photo processing:
-  - monitor photo list
-  - if new photo, then check for MACs
-  - if no macs, then send notification and archive photo
-  - continue to check for MACs at a higher frequency
-  - continue to process photos as they come
-  - rate limit notifications?
-  - clean up old photos?
+Auto adjust camera settings if too dark, white balance etc
 
 Fix shutdown problem
 
-Try to autofix connection errors like renew DHCP lease.
+Implement some form of LED indicator where a colour shows the alarm state.
 
-Move everything to threads
+Use two logger handlers, one for syslog, one for console output.
 
-~~Log message on alarm state transition~~
+Use a pushbullet channel?
 
-~~Have debug mode or to syslog mode.~~
+Automatically clean up old photos
 
-~~Disable alarm by sending push from phone~~
-
-~~Tidy logging to show which thread is logging~~
-
-~~use scan_interval from config file if there~~
-
-~~Remove _ping_ip and _find_mac_in_arp_table~~
+Implement an archive feature. Eg copy to S3 or FTP.

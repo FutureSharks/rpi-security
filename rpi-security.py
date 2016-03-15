@@ -41,7 +41,6 @@ def get_network_address(interface_name):
     return str(network_address)
 
 def log_message(message, message_type = 'normal'):
-    global config
     if message_type == 'debug' and config['debug_enabled'] == False:
         return False
     elif config['debug_enabled'] == True:
@@ -55,11 +54,11 @@ def flash_camera_led(flash_time = 0.25):
         GPIO.output(32,False)
 
 def take_photo(output_file):
-    global config
     time.sleep(1)
     if config['debug_enabled']:
         flash_camera_led()
     config['camera'].resolution = (2592, 1944)
+    config['camera'].vflip = True
     config['camera'].capture(output_file)
     log_message("Captured image: %s" % output_file)
 
@@ -80,11 +79,10 @@ def pb_parse_exception(exception):
             return '%s(%s)' % (pb_error['error']['type'], pb_error['error']['message'])
 
 def pb_send_notifcation(body, title):
-    global config
     try:
         push = config['pushbullet'].push_note(title, body)
     except Exception as e:
-        log_message(message='Pushbullet notification failed to send message "%s, %s" with exception: ' % (title, body, pb_parse_exception(e)))
+        log_message(message='Pushbullet notification failed to send message "%s, %s" with exception: %s' % (title, body, pb_parse_exception(e)))
     else:
         log_message(message='Pushbullet notification Sent: "%s, %s"' % (title, body))
 
@@ -100,7 +98,6 @@ def pb_send_file(file_path):
         return True
 
 def get_pushes():
-    global config
     try:
         pushes = config['pushbullet'].get_pushes()
     except Exception as e:
@@ -125,7 +122,6 @@ def arp_ping_macs():
                 result.append(str(reply[0].pdst))
                 result = ', '.join(result)
         return result
-    global config
     for mac_address in config['mac_addresses']:
         result = _arp_ping(mac_address, config['network_address'])
         if result:
@@ -135,13 +131,15 @@ def arp_ping_macs():
             log_message('MAC %s did not respond to ARP ping' % mac_address, message_type='debug')
 
 def process_photos():
-    global captured_photos
-    global alarm_state
     log_message("thread running")
     while True:
         if len(captured_photos) > 0:
             arp_ping_macs()
             time.sleep(1)
+            arp_ping_macs()
+            time.sleep(2)
+            arp_ping_macs()
+            time.sleep(3)
             now = time.time()
             if now - alarm_state['last_packet'] < 30:
                 for photo in list(captured_photos):
@@ -160,7 +158,6 @@ def capture_packets(network_interface, network_interface_mac, mac_addresses):
     logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
     from scapy.all import sniff
     def update_time(packet):
-        global alarm_state
         for mac_address in mac_addresses:
             if mac_address in packet[0].addr2 or mac_address in packet[0].addr3:
                 alarm_state['last_packet_mac'] = mac_address
@@ -176,7 +173,6 @@ def capture_packets(network_interface, network_interface_mac, mac_addresses):
 
 def monitor_alarm_state(network_address, mac_addresses):
     log_message("thread running")
-    global alarm_state
     last_pb_check = 0
     def send_status(alarm_state_dict):
         current_state = alarm_state_dict['current_state']
@@ -186,7 +182,6 @@ def monitor_alarm_state(network_address, mac_addresses):
         last_packet_mac = alarm_state_dict['last_packet_mac']
         return 'Current state is %s. Changed from %s at %s. The last MAC detect was %s at %s' % (current_state, previous_state, last_state_change, last_packet_mac, last_packet)
     def update_alarm_state(new_alarm_state):
-        global alarm_state
         if new_alarm_state != alarm_state['current_state']:
             alarm_state['previous_state'] = alarm_state['current_state']
             alarm_state['current_state'] = new_alarm_state
@@ -216,7 +211,6 @@ def monitor_alarm_state(network_address, mac_addresses):
                 update_alarm_state('disarmed')
 
 def motion_detected(n):
-    global alarm_state
     current_state = alarm_state['current_state']
     if current_state == 'armed':
         log_message('Motion detected')

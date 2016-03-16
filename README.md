@@ -1,6 +1,6 @@
 # Raspberry Pi Security System
 
-A simple security system to run on a [Raspberry Pi Model A+](https://www.raspberrypi.org/products/model-a-plus/).
+A simple security system to run on a [Raspberry Pi](https://www.raspberrypi.org/).
 
 Features:
   - Motion triggered image capture.
@@ -53,7 +53,7 @@ If the system is in an armed state and motion is detected then a message with th
 
 Notifications are also sent on any state change.
 
-![rpi-security 2](../master/images/rpi-security-notification.jpg?raw=true)
+![rpi-security 2](../master/images/rpi-security-notification.png?raw=true)
 
 ### Remote control
 
@@ -79,8 +79,31 @@ The application uses multithreading in order to process events asynchronously. T
 
 ## Installation, configuration and Running
 
-It runs as a service and logs to syslog. To see the logs it generates check /var/log/syslog.
+To install, use pip:
 
-There is a debug command option. If used all logging is sent to stdout.
+        sudo pip install https://github.com/FutureSharks/rpi-security/zipball/master
+        sudo systemctl daemon-reload
+        sudo systemctl enable rpi-security.service
 
-![rpi-security 1](../master/images/rpi-security-debug-mode.jpg?raw=true)
+Add your MAC addresses and Pushbullet API key to ``/etc/rpi-security.conf``.
+
+And start the service:
+
+      sudo service rpi-security start
+
+It runs as a service and logs to syslog. To see the logs it generates check ``/var/log/syslog``.
+
+There is also a debug option that logs to stdout:
+
+        root@rpi:~# /usr/local/bin/rpi-security.py -d
+        Mar 16 22:26:13 rpi-security(MainThread): Calculated network: 192.168.178.0/24
+        Mar 16 22:26:13 rpi-security(monitor_alarm_state): thread running
+        Mar 16 22:26:13 rpi-security(capture_packets): thread running
+        Mar 16 22:26:13 rpi-security(process_photos): thread running
+        Mar 16 22:26:15 rpi-security(MainThread): rpi-security running
+        Mar 16 22:26:51 rpi-security(Dummy-1): Motion detected but current_state is: disarmed
+        Mar 16 22:27:07 rpi-security(Dummy-1): Motion detected but current_state is: disarmed
+        Mar 16 22:48:24 rpi-security(Dummy-1): Motion detected but current_state is: disarmed
+        Mar 16 22:48:24 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb
+        Mar 16 22:50:39 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb
+        Mar 16 22:52:54 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb

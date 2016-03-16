@@ -24,6 +24,8 @@ requests.packages.urllib3.disable_warnings()
 from pushbullet import Pushbullet
 from ConfigParser import SafeConfigParser
 from threading import Thread, current_thread
+import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 from scapy.all import srp, Ether, ARP
 
 def parse_configfile(config_file):
@@ -103,7 +105,7 @@ def get_pushes():
     except Exception as e:
         log_message(message='Pushbullet failed to get pushes with exception: %s' % pb_parse_exception(e))
     else:
-        return pushes[1]
+        return pushes
 
 def pb_search_pushes(pushes, text):
     result = False
@@ -254,7 +256,10 @@ def set_global_vars():
         config['camera'] = picamera.PiCamera()
     except Exception as e:
         sys.exit('Camera module failed to intialise with error %s' % e)
-    config['pushbullet'] = Pushbullet(config['pushbullet_access_token'])
+    try:
+        config['pushbullet'] = Pushbullet(config['pushbullet_access_token'])
+    except Exception as e:
+        sys.exit('Failed to connect to Pushbullet with error: %s' % e)
     if ',' in config['mac_addresses']:
         config['mac_addresses'] = config['mac_addresses'].split(',')
     else:

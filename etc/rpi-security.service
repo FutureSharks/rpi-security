@@ -1,0 +1,11 @@
+[Unit]
+Description=rpi-security service
+After=multi-user.target
+
+[Service]
+Type=idle
+StandardOutput=null
+ExecStart=/usr/local/bin/rpi-security.py
+
+[Install]
+WantedBy=multi-user.target

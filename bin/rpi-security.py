@@ -3,7 +3,7 @@
 import os, argparse
 
 def parse_arguments():
-    p = argparse.ArgumentParser(description='A simple security system for Raspberry Pi systems using a camera and PIR sensor.')
+    p = argparse.ArgumentParser(description='A simple security system to run on a Raspberry Pi.')
     p.add_argument('-c', '--config_file', help='Path to config file.', default='/etc/rpi-security.conf')
     p.add_argument('-d', '--debug', help='To enable debug output to stdout', action='store_true', default=False)
     return p.parse_args()

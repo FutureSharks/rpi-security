@@ -26,7 +26,7 @@ You will need this hardware:
 
 Other requirements:
   - A [Pushbullet account](https://www.pushbullet.com). A free account works fine.
-  - Raspbian distribution.
+  - Raspbian distribution installed. I used Jessie. You could possibly use a different OS but I can't tried it.
   - Python 2.7.
 
 ## How it works
@@ -79,8 +79,15 @@ The application uses multithreading in order to process events asynchronously. T
 
 ## Installation, configuration and Running
 
+First install required packages:
+
+        sudo apt-get install tcpdump iw python-dev python-pip
+
+Ensure you have enabled the camera module using ``raspi-config``.
+
 To install, use pip:
 
+        sudo pip install https://github.com/secdev/scapy/zipball/master
         sudo pip install https://github.com/FutureSharks/rpi-security/zipball/master
         sudo systemctl daemon-reload
         sudo systemctl enable rpi-security.service
@@ -102,8 +109,5 @@ There is also a debug option that logs to stdout:
         Mar 16 22:26:13 rpi-security(process_photos): thread running
         Mar 16 22:26:15 rpi-security(MainThread): rpi-security running
         Mar 16 22:26:51 rpi-security(Dummy-1): Motion detected but current_state is: disarmed
-        Mar 16 22:27:07 rpi-security(Dummy-1): Motion detected but current_state is: disarmed
-        Mar 16 22:48:24 rpi-security(Dummy-1): Motion detected but current_state is: disarmed
         Mar 16 22:48:24 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb
-        Mar 16 22:50:39 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb
         Mar 16 22:52:54 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb

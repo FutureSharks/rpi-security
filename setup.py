@@ -15,12 +15,12 @@ setup(
         ('/etc', ['etc/rpi-security.conf'])
     ],
     install_requires=[
-        'scapy',
         'pushbullet.py',
         'picamera',
         'netaddr',
         'requests',
-        'requests[security]'
+        'requests[security]',
+        'netifaces'
     ],
     classifiers=[
     'Environment :: Console',

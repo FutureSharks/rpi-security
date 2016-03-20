@@ -201,7 +201,7 @@ def monitor_alarm_state(network_address, mac_addresses):
                     update_alarm_state('disabled')
                     continue
                 elif 'body' in pushes[0] and pushes[0]['body'].lower() == 'status':
-                    pb_send_notifcation(body = send_status(alarm_state), title = 'rpi-security')
+                    pb_send_notifcation(body = send_status(alarm_state), title = 'rpi-security: status')
                 elif alarm_state['current_state'] == 'disabled':
                     update_alarm_state('disarmed')
         if alarm_state['current_state'] != 'disabled':
@@ -244,13 +244,14 @@ def get_interface_mac_addr(network_interface):
         result = f.read().strip()
     return result
 
-def exit(signal = None, frame = None):
+def clean_exit(signal = None, frame = None):
     log_message("rpi-security stopping...")
     GPIO.cleanup()
     sys.exit(0)
 
 def exit_with_error(message):
     log_message(message)
+    GPIO.cleanup()
     sys.exit(1)
 
 def set_global_vars():
@@ -305,4 +306,4 @@ if __name__ == "__main__":
         while 1:
             time.sleep(100)
     except KeyboardInterrupt:
-        exit()
+        clean_exit()

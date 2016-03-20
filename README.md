@@ -89,6 +89,7 @@ To install, use pip:
         sudo pip install https://github.com/FutureSharks/rpi-security/zipball/master
         sudo systemctl daemon-reload
         sudo systemctl enable rpi-security.service
+        sudo systemctl start rpi-security.service
 
 Add your MAC address or addresses and Pushbullet API key to ``/etc/rpi-security.conf``.
 

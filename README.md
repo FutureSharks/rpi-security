@@ -83,8 +83,6 @@ First install required packages:
 
         sudo apt-get install tcpdump iw python-dev python-pip
 
-Ensure you have enabled the camera module using ``raspi-config``.
-
 To install, use pip:
 
         sudo pip install https://github.com/secdev/scapy/zipball/master
@@ -92,7 +90,9 @@ To install, use pip:
         sudo systemctl daemon-reload
         sudo systemctl enable rpi-security.service
 
-Add your MAC addresses and Pushbullet API key to ``/etc/rpi-security.conf``.
+Add your MAC address or addresses and Pushbullet API key to ``/etc/rpi-security.conf``.
+
+Ensure you have enabled the camera module using ``raspi-config``.
 
 And start the service:
 
@@ -102,7 +102,8 @@ It runs as a service and logs to syslog. To see the logs it generates check ``/v
 
 There is also a debug option that logs to stdout:
 
-        root@rpi:~# /usr/local/bin/rpi-security.py -d
+        root@raspberrypi:~# iw phy phy0 interface add mon0 type monitor
+        root@raspberrypi:~# /usr/local/bin/rpi-security.py -d
         Mar 16 22:26:13 rpi-security(MainThread): Calculated network: 192.168.178.0/24
         Mar 16 22:26:13 rpi-security(monitor_alarm_state): thread running
         Mar 16 22:26:13 rpi-security(capture_packets): thread running

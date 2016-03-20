@@ -1,8 +1,8 @@
 # rpi-sec to do list
 
-Finish installation script, make it a pip module, add init script.
+Fix shutdown problem, it shouldn't require 'pkill -9'.
 
-Fix shutdown problem
+Add a udev rule for monitor interface instead of having it in the systemd service file?
 
 Implement some form of LED indicator where a colour shows the alarm state.
 

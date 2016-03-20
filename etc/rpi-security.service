@@ -5,8 +5,12 @@ After=multi-user.target
 [Service]
 Type=idle
 StandardOutput=null
-ExecStart=iw phy phy0 interface add mon0 type monitor; /usr/local/bin/rpi-security.py
-ExecStop=iw dev mon0 del; killall rpi-security.py
+TimeoutStartSec=15
+ExecStartPre=/sbin/iw phy phy0 interface add mon0 type monitor
+ExecStartPre=/sbin/ifconfig mon0 up
+ExecStart=/usr/local/bin/rpi-security.py
+ExecStop=/usr/bin/pkill -9 rpi-security.py
+ExecStopPost=/sbin/iw dev mon0 del
 
 [Install]
 WantedBy=multi-user.target

@@ -11,7 +11,7 @@ def parse_arguments():
 args = parse_arguments()
 
 if not os.geteuid() == 0:
-    sys.exit('%s must be run as root' % sys.argv[0])
+    exit_with_error('%s must be run as root' % sys.argv[0])
 
 import RPi.GPIO as GPIO
 GPIO.setwarnings(False)
@@ -225,11 +225,12 @@ def motion_detected(n):
 def check_monitor_mode(network_interface):
     result = False
     try:
-        f = open('/sys/class/net/%s/type' % network_interface, 'r')
+        type_file = open('/sys/class/net/%s/type' % network_interface, 'r')
+        operstate_file = open('/sys/class/net/%s/operstate' % network_interface, 'r')
     except:
         pass
     else:
-        if f.read().startswith('80'):
+        if type_file.read().startswith('80') and not operstate_file.read().startswith('down'):
             result = True
     return result
 
@@ -248,6 +249,10 @@ def exit(signal = None, frame = None):
     GPIO.cleanup()
     sys.exit(0)
 
+def exit_with_error(message):
+    log_message(message)
+    sys.exit(1)
+
 def set_global_vars():
     global config
     config = parse_configfile(args.config_file)
@@ -255,11 +260,11 @@ def set_global_vars():
     try:
         config['camera'] = picamera.PiCamera()
     except Exception as e:
-        sys.exit('Camera module failed to intialise with error %s' % e)
+        exit_with_error('Camera module failed to intialise with error %s' % e)
     try:
         config['pushbullet'] = Pushbullet(config['pushbullet_access_token'])
     except Exception as e:
-        sys.exit('Failed to connect to Pushbullet with error: %s' % e)
+        exit_with_error('Failed to connect to Pushbullet with error: %s' % e)
     if ',' in config['mac_addresses']:
         config['mac_addresses'] = config['mac_addresses'].split(',')
     else:
@@ -281,7 +286,7 @@ if __name__ == "__main__":
         config['network_interface_mac'] = get_interface_mac_addr(config['network_interface'])
         config['network_address'] = get_network_address('wlan0')
     else:
-        sys.exit('Interface %s does not exist, is not in monitor mode or MAC address unknown.' % config['network_interface'])
+        exit_with_error('Interface %s does not exist, is not in monitor mode, is not up or MAC address unknown.' % config['network_interface'])
     monitor_alarm_state_thread = Thread(name='monitor_alarm_state', target=monitor_alarm_state, kwargs={'network_address': config['network_address'], 'mac_addresses': config['mac_addresses']})
     monitor_alarm_state_thread.daemon
     monitor_alarm_state_thread.start()

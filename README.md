@@ -89,7 +89,6 @@ To install, use pip:
         sudo pip install https://github.com/FutureSharks/rpi-security/zipball/master
         sudo systemctl daemon-reload
         sudo systemctl enable rpi-security.service
-        sudo systemctl start rpi-security.service
 
 Add your MAC address or addresses and Pushbullet API key to ``/etc/rpi-security.conf``.
 
@@ -97,7 +96,7 @@ Ensure you have enabled the camera module using ``raspi-config``.
 
 And start the service:
 
-      sudo service rpi-security start
+      sudo systemctl start rpi-security.service
 
 It runs as a service and logs to syslog. To see the logs it generates check ``/var/log/syslog``.
 

@@ -83,6 +83,10 @@ First install required packages:
 
         sudo apt-get install tcpdump iw python-dev python-pip
 
+Optionally, update pip:
+
+        pip install --upgrade pip
+
 To install, use pip:
 
         sudo pip install https://github.com/secdev/scapy/zipball/master

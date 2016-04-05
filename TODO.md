@@ -1,5 +1,7 @@
 # rpi-sec to do list
 
+Switch to Telegram instead of pushbullet
+
 Fix shutdown problem, it shouldn't require 'pkill -9'.
 
 Add a udev rule for monitor interface instead of having it in the systemd service file?

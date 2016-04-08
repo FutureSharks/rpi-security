@@ -2,6 +2,8 @@
 
 Switch to Telegram instead of pushbullet
 
+Include uptime and whether system has been triggered in status report
+
 Fix shutdown problem, it shouldn't require 'pkill -9'.
 
 Add a udev rule for monitor interface instead of having it in the systemd service file?

@@ -26,7 +26,7 @@ You will need this hardware:
 
 Other requirements:
   - A [Pushbullet account](https://www.pushbullet.com). A free account works fine.
-  - Raspbian distribution installed. I used Jessie. You could possibly use a different OS but I can't tried it.
+  - Raspbian distribution installed. I used Jessie. You could possibly use a different OS but I havn't tried it.
   - Python 2.7.
 
 ## How it works

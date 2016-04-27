@@ -15,6 +15,9 @@ Similar to these products:
 
 ![rpi-security 1](../master/images/rpi-security-1.jpg?raw=true)
 
+![rpi-security 2](../master/images/rpi-security-2.jpg?raw=true)
+
+
 ## Requirements
 
 You will need this hardware:
@@ -116,4 +119,4 @@ There is also a debug option that logs to stdout:
 
 About once every month or two my Raspberry Pi loses the WLAN connection. I created a cron job to check connectivity and reboot if the check fails.
 
-echo '*/20 * * * * root host api.telegram.org > /dev/null 2>1 || (logger "Rebooting due to connectivity issue"; shutdown -r now)' > /etc/cron.d/reboot-on-connection-failure
+        echo '*/20 * * * * root host api.telegram.org > /dev/null 2>1 || (logger "Rebooting due to connectivity issue"; shutdown -r now)' > /etc/cron.d/reboot-on-connection-failure

@@ -15,7 +15,7 @@ setup(
         ('/etc', ['etc/rpi-security.conf'])
     ],
     install_requires=[
-        'pushbullet.py',
+        'python-telegram-bot',
         'picamera',
         'netaddr',
         'requests',

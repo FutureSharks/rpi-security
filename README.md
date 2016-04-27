@@ -6,7 +6,7 @@ Features:
   - Motion triggered image capture.
   - Mobile notifications with images.
   - Detects when you are home and arms or disarms automatically.
-  - Can be remotely disabled or queried for status using pushbullet app.
+  - Can be remotely disabled or queried for status using [Telegram](https://telegram.org/).
 
 Similar to these products:
 
@@ -25,8 +25,8 @@ You will need this hardware:
   - An enclosure of some sort. Details of the hardware I made is [here](hardware).
 
 Other requirements:
-  - A [Pushbullet account](https://www.pushbullet.com). A free account works fine.
-  - Raspbian distribution installed. I used Jessie. You could possibly use a different OS but I havn't tried it.
+  - A [Telegram bot](https://telegram.org/). It's free and easy to setup.
+  - Raspbian distribution installed. I used Jessie. You could possibly use a different OS but I haven't tried it.
   - Python 2.7.
 
 ## How it works
@@ -47,9 +47,9 @@ The application resets a counter when packets are detected and if the counter go
 
 ### Notifications
 
-[Pushbullet](https://www.pushbullet.com/) is used to send notifications with the captured images. They have good mobile applications and a nice API. You can also view the messages in a browser and messages are synced.
+A [Telegram](https://telegram.org/) bot is used to send notifications with the captured images. They have good mobile applications and a nice API. You can also view the messages in a browser and messages are synced across devices.
 
-If the system is in an armed state and motion is detected then a message with the captured image is sent to your mobile phone.
+If the system is in an armed state and motion is detected then a message with the captured image is sent to you via Telegram.
 
 Notifications are also sent on any state change.
 
@@ -57,14 +57,9 @@ Notifications are also sent on any state change.
 
 ### Remote control
 
-The application checks Pushbullet messages every 10 minutes for specific messages that trigger certain actions. If this checking happens at a higher frequency then you will hit the Pushbullet API rate limit unless you switch to a paid account.
+Telegram is checked every 5 minutes for new messages that trigger certain actions.
 
-If you send a message with just the text 'disable' then the system will be disabled until the message is deleted:
-
-![rpi-security 3](../master/images/rpi-security-disable-message.png?raw=true)
-
-
-You can also send a 'status' message to get information about the current state:
+If you send a message with just the text 'disable' then the system will be disabled. Send 'enable' to re-enable the system. You can also send a 'status' message to get information about the current state:
 
 ![rpi-security 4](../master/images/rpi-security-status-message.png?raw=true)
 
@@ -73,7 +68,7 @@ You can also send a 'status' message to get information about the current state:
 I wrote the whole application in python. Large parts of the functionality are provided by the following pip modules:
   - [picamera](https://github.com/waveform80/picamera)
   - [Scapy](http://www.secdev.org/projects/scapy/)
-  - [Pushbullet](https://github.com/randomchars/pushbullet.py)
+  - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
 
 The application uses multithreading in order to process events asynchronously. There is a thread for mobile phone packet detection, processing the capture photos, monitoring the alarm state and monitoring the PIR sensor.
 
@@ -94,7 +89,7 @@ To install, use pip:
         sudo systemctl daemon-reload
         sudo systemctl enable rpi-security.service
 
-Add your MAC address or addresses and Pushbullet API key to ``/etc/rpi-security.conf``.
+Add your MAC address or addresses and Telegram bot API key to ``/etc/rpi-security.conf``.
 
 Ensure you have enabled the camera module using ``raspi-config``.
 
@@ -116,3 +111,9 @@ There is also a debug option that logs to stdout:
         Mar 16 22:26:51 rpi-security(Dummy-1): Motion detected but current_state is: disarmed
         Mar 16 22:48:24 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb
         Mar 16 22:52:54 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb
+
+### Reboot on connectivity loss
+
+About once every month or two my Raspberry Pi loses the WLAN connection. I created a cron job to check connectivity and reboot if the check fails.
+
+echo '*/20 * * * * root host api.telegram.org > /dev/null 2>1 || (logger "Rebooting due to connectivity issue"; shutdown -r now)' > /etc/cron.d/reboot-on-connection-failure

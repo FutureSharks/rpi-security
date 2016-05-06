@@ -183,7 +183,7 @@ def monitor_alarm_state():
     log_message("thread running")
     last_telegram_update = 0
     status_replied = {}
-    def send_status(alarm_state_dict):
+    def prepare_status(alarm_state_dict):
         current_state = alarm_state_dict['current_state']
         up_time = time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
         previous_state = alarm_state_dict['previous_state']
@@ -205,16 +205,20 @@ def monitor_alarm_state():
         if now - last_telegram_update > 300:
             log_message('Checking Telegram for new messages', message_type='debug')
             last_telegram_update = time.time()
-            last_telegram_message = telegram_get_messages()[-1]
-            if 'disable' in last_telegram_message.message.text.lower():
-                update_alarm_state('disabled')
-            if alarm_state['current_state'] == 'disabled' and 'enable' in last_telegram_message.message.text.lower():
-                update_alarm_state('disarmed')
-            if 'status' in last_telegram_message.message.text.lower():
-                message_id = last_telegram_message.message.message_id
-                if message_id not in status_replied:
-                    telegram_send_message('rpi-security status: %s' % send_status(alarm_state))
-                    status_replied[message_id] = True
+            messages = telegram_get_messages()
+            if len(messages) < 1:
+                log_message('No Telegram messages', message_type='debug')
+            else:
+                last_telegram_message = messages[-1]
+                if 'disable' in last_telegram_message.message.text.lower():
+                    update_alarm_state('disabled')
+                if alarm_state['current_state'] == 'disabled' and 'enable' in last_telegram_message.message.text.lower():
+                    update_alarm_state('disarmed')
+                if 'status' in last_telegram_message.message.text.lower():
+                    message_id = last_telegram_message.message.message_id
+                    if message_id not in status_replied:
+                        telegram_send_message('rpi-security status: %s' % prepare_status(alarm_state))
+                        status_replied[message_id] = True
         if alarm_state['current_state'] != 'disabled':
             if now - alarm_state['last_packet'] > 720:
                 update_alarm_state('armed')

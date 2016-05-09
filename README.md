@@ -77,6 +77,8 @@ The application uses multithreading in order to process events asynchronously. T
 
 ## Installation, configuration and Running
 
+The interface used to connect to your WiFi network must be the same interface that supports monitor mode. And this must be the same WiFi network that the mobile phones connect to.
+
 First install required packages:
 
         sudo apt-get install tcpdump iw python-dev python-pip
@@ -100,20 +102,41 @@ And start the service:
 
       sudo systemctl start rpi-security.service
 
-It runs as a service and logs to syslog. To see the logs it generates check ``/var/log/syslog``.
+It runs as a service and logs to syslog. To see the logs check ``/var/log/syslog``.
 
 There is also a debug option that logs to stdout:
 
         root@raspberrypi:~# iw phy phy0 interface add mon0 type monitor
-        root@raspberrypi:~# /usr/local/bin/rpi-security.py -d
-        Mar 16 22:26:13 rpi-security(MainThread): Calculated network: 192.168.178.0/24
-        Mar 16 22:26:13 rpi-security(monitor_alarm_state): thread running
-        Mar 16 22:26:13 rpi-security(capture_packets): thread running
-        Mar 16 22:26:13 rpi-security(process_photos): thread running
-        Mar 16 22:26:15 rpi-security(MainThread): rpi-security running
-        Mar 16 22:26:51 rpi-security(Dummy-1): Motion detected but current_state is: disarmed
-        Mar 16 22:48:24 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb
-        Mar 16 22:52:54 rpi-security(capture_packets): Packet detected from aa:aa:aa:bb:bb:bb
+        root@raspberrypi:~# rpi-security.py -d
+        2016-05-08 23:42:04 DEBUG rpi-security.py:43  MainThread          Calculated network: 192.168.1.0/24
+        2016-05-08 23:42:15 INFO  rpi-security.py:189 monitor_alarm_state thread running
+        2016-05-08 23:42:15 INFO  rpi-security.py:182 capture_packets     thread running
+        2016-05-08 23:42:15 INFO  rpi-security.py:141 process_photos      thread running
+        2016-05-08 23:42:17 INFO  rpi-security.py:352 MainThread          rpi-security running
+        2016-05-08 23:42:18 INFO  rpi-security.py:90  MainThread          Telegram message Sent: "rpi-security running"
+        2016-05-08 23:42:20 DEBUG rpi-security.py:212 monitor_alarm_state Checking Telegram for new messages
+        2016-05-08 23:45:55 DEBUG rpi-security.py:177 capture_packets     Packet detected from aa:aa:aa:bb:bb:bb
+        2016-05-08 23:45:56 DEBUG rpi-security.py:177 capture_packets     Packet detected from aa:aa:aa:bb:bb:bb
+        2016-05-08 23:47:21 DEBUG rpi-security.py:212 monitor_alarm_state Checking Telegram for new messages
+        2016-05-08 23:47:22 DEBUG rpi-security.py:257 Dummy-1             Motion detected but current_state is: disarmed
+
+This is all that is required on my Raspberry Pi Model A+. This shows my WLAN network device arrangement:
+
+        root@raspberrypi:~# iw dev
+        phy#0
+                Interface mon0
+                        ifindex 4
+                        wdev 0x3
+                        addr 00:0f:60:08:9c:01
+                        type monitor
+                Interface wlan0
+                        ifindex 2
+                        wdev 0x1
+                        addr 00:0f:60:08:9c:01
+                        type managed
+                        channel 1 (2412 MHz), width: 40 MHz, center1: 2422 MHz
+
+You could have interfaces with different names, just be sure to change the ``network_interface`` parameter in ``/etc/rpi-security.conf`` and also the reference to mon0 in [rpi-security.service](https://github.com/FutureSharks/rpi-security/blob/master/etc/rpi-security.service)
 
 ### Reboot on connectivity loss
 

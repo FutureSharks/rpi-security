@@ -142,4 +142,4 @@ You could have interfaces with different names, just be sure to change the ``net
 
 About once every month or two my Raspberry Pi loses the WLAN connection. I created a cron job to check connectivity and reboot if the check fails.
 
-        echo '*/20 * * * * root host api.telegram.org > /dev/null 2>1 || (logger "Rebooting due to connectivity issue"; shutdown -r now)' > /etc/cron.d/reboot-on-connection-failure
+        echo '*/20 * * * * root /usr/bin/host api.telegram.org > /dev/null 2>1 || (/usr/bin/logger "Rebooting due to connectivity issue"; /sbin/shutdown -r now)' > /etc/cron.d/reboot-on-connection-failure

@@ -152,6 +152,7 @@ def process_photos():
                 for photo in list(captured_photos):
                     logger.info('Removing photo as it is a false positive: %s' % photo)
                     captured_photos.remove(photo)
+                    # Delete the photo file
             else:
                 logger.debug('Starting to process photos')
                 alarm_state['alarm_triggered'] = True
@@ -259,11 +260,13 @@ def motion_detected(n):
 def clean_exit(signal = None, frame = None):
     logger.info("rpi-security stopping...")
     GPIO.cleanup()
+    config['camera'].close()
     sys.exit(0)
 
 def exit_with_error(message):
     logger.critical(message)
     GPIO.cleanup()
+    config['camera'].close()
     sys.exit(1)
 
 def exception_handler(type, value, tb):
@@ -344,7 +347,7 @@ if __name__ == "__main__":
     process_photos_thread = Thread(name='process_photos', target=process_photos)
     process_photos_thread.daemon = True
     process_photos_thread.start()
-    signal.signal(signal.SIGTERM, exit)
+    signal.signal(signal.SIGTERM, clean_exit)
     time.sleep(2)
     try:
         GPIO.setup(int(config['pir_pin']), GPIO.IN)

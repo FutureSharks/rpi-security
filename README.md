@@ -93,6 +93,7 @@ Install current master of scapy as the current release is missing a required bug
         sudo pip install https://github.com/secdev/scapy/zipball/master
 
 Install rpi-security, reload systemd configuration and enable the service:
+
         sudo pip install https://github.com/FutureSharks/rpi-security/zipball/master
         sudo systemctl daemon-reload
         sudo systemctl enable rpi-security.service

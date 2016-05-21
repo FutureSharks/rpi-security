@@ -1,8 +1,8 @@
 # rpi-sec to do list
 
-Fix shutdown problem, it shouldn't require 'pkill -9'.
+Include some formatting in Telegram messages.
 
-Include some formatting in Telegram messagess.
+What to do when the Telegram chat ID can't be got?
 
 Add a udev rule for monitor interface instead of having it in the systemd service file?
 

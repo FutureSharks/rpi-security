@@ -61,7 +61,6 @@ def parse_configfile(config_file):
     config.read(config_file)
     return dict(config.items('main'))
 
-
 def take_photo():
     """
     Captures a photo and appends it to the captured_photos list for processessing.
@@ -181,7 +180,10 @@ def capture_packets(network_interface, network_interface_mac, mac_addresses):
         return '((wlan addr2 (%(mac_string)s) or wlan addr3 (%(mac_string)s)) and type mgt subtype probe-req) or (wlan addr1 %(network_interface_mac)s and wlan addr3 (%(mac_string)s))' % { 'mac_string' : mac_string, 'network_interface_mac' : network_interface_mac }
     while True:
         logger.info("thread running")
-        sniff(iface=network_interface, store=0, prn=update_time, filter=calculate_filter(mac_addresses))
+        try:
+            sniff(iface=network_interface, store=0, prn=update_time, filter=calculate_filter(mac_addresses))
+        except Exception as e:
+            exit_error('Scapy failed to sniff with error %s. Please check help or update scapy version' % e)
 
 def monitor_alarm_state():
     """
@@ -257,17 +259,25 @@ def motion_detected(n):
     else:
         logger.debug('Motion detected but current_state is: %s' % current_state)
 
-def clean_exit(signal = None, frame = None):
-    logger.info("rpi-security stopping...")
+def exit_cleanup():
     GPIO.cleanup()
-    config['camera'].close()
+    if 'camera' in config:
+        config['camera'].close()
+
+def exit_clean(signal = None, frame = None):
+    logger.info("rpi-security stopping...")
+    exit_cleanup()
     sys.exit(0)
 
-def exit_with_error(message):
+def exit_error(message):
     logger.critical(message)
-    GPIO.cleanup()
-    config['camera'].close()
-    sys.exit(1)
+    exit_cleanup()
+    try:
+        current_thread().getName()
+    except NameError:
+        sys.exit(1)
+    else:
+        os._exit(1)
 
 def exception_handler(type, value, tb):
     logger.exception("Uncaught exception: {0}".format(str(value)))
@@ -303,9 +313,9 @@ if __name__ == "__main__":
         config['network_interface_mac'] = get_interface_mac_addr(config['network_interface'])
         config['network_address'] = get_network_address('wlan0')
     else:
-        exit_with_error('Interface %s does not exist, is not in monitor mode, is not up or MAC address unknown.' % config['network_interface'])
+        exit_error('Interface %s does not exist, is not in monitor mode, is not up or MAC address unknown.' % config['network_interface'])
     if not os.geteuid() == 0:
-        exit_with_error('%s must be run as root' % sys.argv[0])
+        exit_error('%s must be run as root' % sys.argv[0])
     if ',' in config['mac_addresses']:
         config['mac_addresses'] = config['mac_addresses'].split(',')
     else:
@@ -322,11 +332,11 @@ if __name__ == "__main__":
         config['camera'].vflip = True
         config['camera'].led = False
     except Exception as e:
-        exit_with_error('Camera module failed to intialise with error %s' % e)
+        exit_error('Camera module failed to intialise with error %s' % e)
     try:
         config['bot'] = telegram.Bot(token=config['telegram_bot_token'])
     except Exception as e:
-        exit_with_error('Failed to connect to Telegram with error: %s' % e)
+        exit_error('Failed to connect to Telegram with error: %s' % e)
     # Set the initial alarm_state dictionary
     alarm_state = {
         'start_time': time.time(),
@@ -339,7 +349,7 @@ if __name__ == "__main__":
     }
     captured_photos = []
     monitor_alarm_state_thread = Thread(name='monitor_alarm_state', target=monitor_alarm_state)
-    monitor_alarm_state_thread.daemon
+    monitor_alarm_state_thread.daemon = True
     monitor_alarm_state_thread.start()
     capture_packets_thread = Thread(name='capture_packets', target=capture_packets, kwargs={'network_interface': config['network_interface'], 'network_interface_mac': config['network_interface_mac'], 'mac_addresses': config['mac_addresses']})
     capture_packets_thread.daemon = True
@@ -347,7 +357,7 @@ if __name__ == "__main__":
     process_photos_thread = Thread(name='process_photos', target=process_photos)
     process_photos_thread.daemon = True
     process_photos_thread.start()
-    signal.signal(signal.SIGTERM, clean_exit)
+    signal.signal(signal.SIGTERM, exit_clean)
     time.sleep(2)
     try:
         GPIO.setup(int(config['pir_pin']), GPIO.IN)
@@ -357,4 +367,4 @@ if __name__ == "__main__":
         while 1:
             time.sleep(100)
     except KeyboardInterrupt:
-        clean_exit()
+        exit_clean()

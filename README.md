@@ -81,15 +81,18 @@ The interface used to connect to your WiFi network must be the same interface th
 
 First install required packages:
 
+        sudo apt-get update
         sudo apt-get install tcpdump iw python-dev python-pip
 
-Optionally, update pip:
+Update pip:
 
         pip install --upgrade pip
 
-To install, use pip:
+Install current master of scapy as the current release is missing a required bug fix:
 
         sudo pip install https://github.com/secdev/scapy/zipball/master
+
+Install rpi-security, reload systemd configuration and enable the service:
         sudo pip install https://github.com/FutureSharks/rpi-security/zipball/master
         sudo systemctl daemon-reload
         sudo systemctl enable rpi-security.service
@@ -107,6 +110,7 @@ It runs as a service and logs to syslog. To see the logs check ``/var/log/syslog
 There is also a debug option that logs to stdout:
 
         root@raspberrypi:~# iw phy phy0 interface add mon0 type monitor
+        root@raspberrypi:~# ifconfig mon0 up
         root@raspberrypi:~# rpi-security.py -d
         2016-05-08 23:42:04 DEBUG rpi-security.py:43  MainThread          Calculated network: 192.168.1.0/24
         2016-05-08 23:42:15 INFO  rpi-security.py:189 monitor_alarm_state thread running

@@ -79,10 +79,23 @@ def archive_photo(photo_path):
     logger.debug('Archiving of photo complete: %s' % photo_path)
     pass
 
+def telegram_get_chat_id():
+    """
+    Returns the chat ID. This ID is required for all Telegram messages
+    """
+    try:
+        updates = config['bot'].getUpdates()
+    except Exception as e:
+        exit_error('Telegram failed to get chat ID with exception: %s' % e)
+    else:
+        if len(updates) < 1:
+            exit_error('Telegram failed to get chat ID. Please send a single message to the Telegram bot and then try again')
+        else:
+            return updates[-1].message.chat_id
+
 def telegram_send_message(message):
     try:
-        chat_id = config['bot'].getUpdates()[-1].message.chat_id
-        config['bot'].sendMessage(chat_id=chat_id, text=message)
+        config['bot'].sendMessage(chat_id=config['telegram_chat_id'], text=message)
     except Exception as e:
         logger.error('Telegram message failed to send message "%s" with exception: %s' % (message, e))
     else:
@@ -90,8 +103,7 @@ def telegram_send_message(message):
 
 def telegram_send_photo(file_path):
     try:
-        chat_id = config['bot'].getUpdates()[-1].message.chat_id
-        config['bot'].sendPhoto(chat_id=chat_id, photo=open(file_path, 'rb'))
+        config['bot'].sendPhoto(chat_id=config['telegram_chat_id'], photo=open(file_path, 'rb'))
     except Exception as e:
         logger.error('Telegram failed to send file %s with exception: %s' % (file_path, e))
     else:
@@ -286,7 +298,7 @@ def setup_logging(debug_mode = False):
     logger = logging.getLogger(__name__)
     if debug_mode:
         stdout_level = logging.DEBUG
-        stdout_format = logging.Formatter("%(asctime)s %(levelname)-5s %(filename)s:%(lineno)-3s %(threadName)-19s %(message)s", "%Y-%m-%d %H:%M:%S")
+        stdout_format = logging.Formatter("%(asctime)s %(levelname)-7s %(filename)s:%(lineno)-3s %(threadName)-19s %(message)s", "%Y-%m-%d %H:%M:%S")
     else:
         stdout_level = logging.CRITICAL
         stdout_format = logging.Formatter("ERROR: %(message)s")
@@ -311,6 +323,7 @@ if __name__ == "__main__":
     # Some intial checks before proceeding
     if check_monitor_mode(config['network_interface']):
         config['network_interface_mac'] = get_interface_mac_addr(config['network_interface'])
+        # Hard coded interface name here. Need a better solution
         config['network_address'] = get_network_address('wlan0')
     else:
         exit_error('Interface %s does not exist, is not in monitor mode, is not up or MAC address unknown.' % config['network_interface'])
@@ -337,6 +350,7 @@ if __name__ == "__main__":
         config['bot'] = telegram.Bot(token=config['telegram_bot_token'])
     except Exception as e:
         exit_error('Failed to connect to Telegram with error: %s' % e)
+    config['telegram_chat_id'] = telegram_get_chat_id()
     # Set the initial alarm_state dictionary
     alarm_state = {
         'start_time': time.time(),

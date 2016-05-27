@@ -84,7 +84,7 @@ def telegram_get_chat_id():
     Returns the chat ID. This ID is required for all Telegram messages
     """
     try:
-        updates = config['bot'].getUpdates()
+        updates = config['bot'].getUpdates(timeout=5)
     except Exception as e:
         exit_error('Telegram failed to get chat ID with exception: %s' % e)
     else:
@@ -95,7 +95,7 @@ def telegram_get_chat_id():
 
 def telegram_send_message(message):
     try:
-        config['bot'].sendMessage(chat_id=config['telegram_chat_id'], text=message)
+        config['bot'].sendMessage(chat_id=config['telegram_chat_id'], text=message, timeout=5)
     except Exception as e:
         logger.error('Telegram message failed to send message "%s" with exception: %s' % (message, e))
     else:
@@ -103,7 +103,7 @@ def telegram_send_message(message):
 
 def telegram_send_photo(file_path):
     try:
-        config['bot'].sendPhoto(chat_id=config['telegram_chat_id'], photo=open(file_path, 'rb'))
+        config['bot'].sendPhoto(chat_id=config['telegram_chat_id'], photo=open(file_path, 'rb'), timeout=5)
     except Exception as e:
         logger.error('Telegram failed to send file %s with exception: %s' % (file_path, e))
     else:
@@ -115,7 +115,7 @@ def telegram_get_messages():
     Returns list of Telegram messages.
     """
     try:
-        updates = config['bot'].getUpdates()
+        updates = config['bot'].getUpdates(timeout=5)
     except Exception as e:
         logger.error('Telegram failed to get updates with exception: %s' % e)
         return []

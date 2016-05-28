@@ -8,11 +8,12 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(32, GPIO.OUT, initial=False)
 
 from datetime import datetime
-import sys, time, logging, signal
+import sys, time, logging, signal, yaml
 
 def parse_arguments():
     p = argparse.ArgumentParser(description='A simple security system to run on a Raspberry Pi.')
     p.add_argument('-c', '--config_file', help='Path to config file.', default='/etc/rpi-security.conf')
+    p.add_argument('-s', '--state_file', help='Path to state file.', default='/var/lib/rpi-security/state.yaml')
     p.add_argument('-d', '--debug', help='To enable debug output to stdout', action='store_true', default=False)
     return p.parse_args()
 
@@ -56,10 +57,30 @@ def get_interface_mac_addr(network_interface):
         result = f.read().strip()
     return result
 
-def parse_configfile(config_file):
+def parse_config_file(config_file):
     config = SafeConfigParser()
     config.read(config_file)
     return dict(config.items('main'))
+
+def read_state_file(state_file):
+    result = {}
+    try:
+        with open(state_file, 'r') as stream:
+            result = yaml.load(stream) or {}
+    except Exception as e:
+        logger.error('Failed to read state file %s: %s' % (state_file, e))
+    else:
+        logger.debug('State file read: %s' % state_file)
+    return result
+
+def write_state_file(state_file, state_data):
+    try:
+        with open(state_file, 'w') as f:
+            yaml.dump(state_data, f, default_flow_style=False)
+    except Exception as e:
+        logger.error('Failed to write state file %s: %s' % (state_file, e))
+    else:
+        logger.debug('State file written: %s' % state_file)
 
 def take_photo():
     """
@@ -70,7 +91,7 @@ def take_photo():
         GPIO.output(32,True)
         time.sleep(0.25)
         GPIO.output(32,False)
-    config['camera'].capture(camera_output_file)
+    camera.capture(camera_output_file)
     logger.info("Captured image: %s" % camera_output_file)
     captured_photos.append(camera_output_file)
 
@@ -79,48 +100,29 @@ def archive_photo(photo_path):
     logger.debug('Archiving of photo complete: %s' % photo_path)
     pass
 
-def telegram_get_chat_id():
-    """
-    Returns the chat ID. This ID is required for all Telegram messages
-    """
-    try:
-        updates = config['bot'].getUpdates(timeout=5)
-    except Exception as e:
-        exit_error('Telegram failed to get chat ID with exception: %s' % e)
-    else:
-        if len(updates) < 1:
-            exit_error('Telegram failed to get chat ID. Please send a single message to the Telegram bot and then try again')
-        else:
-            return updates[-1].message.chat_id
-
 def telegram_send_message(message):
+    if 'telegram_chat_id' not in state:
+        logger.error('Telegram failed to send message because Telegram chat_id is not set. Send a message to the Telegram bot')
+        return False
     try:
-        config['bot'].sendMessage(chat_id=config['telegram_chat_id'], text=message, timeout=5)
+        bot.sendMessage(chat_id=state['telegram_chat_id'], parse_mode='Markdown', text=message, timeout=10)
     except Exception as e:
         logger.error('Telegram message failed to send message "%s" with exception: %s' % (message, e))
     else:
         logger.info('Telegram message Sent: "%s"' % message)
+        return True
 
 def telegram_send_photo(file_path):
+    if 'telegram_chat_id' not in state:
+        logger.error('Telegram failed to send file %s because Telegram chat_id is not set. Send a message to the Telegram bot' % file_path)
+        return False
     try:
-        config['bot'].sendPhoto(chat_id=config['telegram_chat_id'], photo=open(file_path, 'rb'), timeout=5)
+        bot.sendPhoto(chat_id=state['telegram_chat_id'], photo=open(file_path, 'rb'), timeout=10)
     except Exception as e:
         logger.error('Telegram failed to send file %s with exception: %s' % (file_path, e))
     else:
         logger.info('Telegram file sent: %s' % file_path)
         return True
-
-def telegram_get_messages():
-    """
-    Returns list of Telegram messages.
-    """
-    try:
-        updates = config['bot'].getUpdates(timeout=5)
-    except Exception as e:
-        logger.error('Telegram failed to get updates with exception: %s' % e)
-        return []
-    else:
-        return updates
 
 def arp_ping_macs():
     """
@@ -197,13 +199,34 @@ def capture_packets(network_interface, network_interface_mac, mac_addresses):
         except Exception as e:
             exit_error('Scapy failed to sniff with error %s. Please check help or update scapy version' % e)
 
+def update_alarm_state(new_alarm_state):
+    if new_alarm_state != alarm_state['current_state']:
+        alarm_state['previous_state'] = alarm_state['current_state']
+        alarm_state['current_state'] = new_alarm_state
+        alarm_state['last_state_change'] = time.time()
+        logger.info("rpi-security is now %s" % alarm_state['current_state'])
+        telegram_send_message('rpi-security: *%s*' % alarm_state['current_state'])
+
 def monitor_alarm_state():
     """
     This function monitors and updates the alarm state based on data from Telegram and the alarm_state dictionary.
     """
     logger.info("thread running")
-    last_telegram_update = 0
-    status_replied = { 'initial_check': True }
+    while True:
+        time.sleep(5)
+        now = time.time()
+        if alarm_state['current_state'] != 'disabled':
+            if now - alarm_state['last_packet'] > 720:
+                update_alarm_state('armed')
+            elif now - alarm_state['last_packet'] > 700:
+                arp_ping_macs()
+            else:
+                update_alarm_state('disarmed')
+
+def telegram_bot(token):
+    """
+    This function runs the telegram bot that responds to commands like /enable, /disable or /status.
+    """
     def prepare_status(alarm_state_dict):
         current_state = alarm_state_dict['current_state']
         up_time = time.strftime("%H:%M:%S", time.gmtime(time.time() - alarm_state_dict['start_time']))
@@ -212,44 +235,29 @@ def monitor_alarm_state():
         last_packet = time.strftime("%D %H:%M", time.localtime(int(alarm_state_dict['last_packet'])))
         last_packet_mac = alarm_state_dict['last_packet_mac']
         alarm_triggered = alarm_state_dict['alarm_triggered']
-        return 'Current state is %s. Uptime is %s. Changed from %s at %s. The last MAC detect was %s at %s. Alarm triggered: %s' % (current_state, up_time, previous_state, last_state_change, last_packet_mac, last_packet, alarm_triggered)
-    def update_alarm_state(new_alarm_state):
-        if new_alarm_state != alarm_state['current_state']:
-            alarm_state['previous_state'] = alarm_state['current_state']
-            alarm_state['current_state'] = new_alarm_state
-            alarm_state['last_state_change'] = time.time()
-            logger.info("rpi-security is now %s" % alarm_state['current_state'])
-            telegram_send_message('rpi-security: %s' % alarm_state['current_state'])
-    while True:
-        time.sleep(5)
-        now = time.time()
-        if now - last_telegram_update > 300:
-            logger.debug('Checking Telegram for new messages')
-            last_telegram_update = time.time()
-            messages = telegram_get_messages()
-            if len(messages) < 1:
-                logger.debug('No Telegram messages')
-            else:
-                last_telegram_message = messages[-1]
-                if 'disable' in last_telegram_message.message.text.lower():
-                    update_alarm_state('disabled')
-                if alarm_state['current_state'] == 'disabled' and 'enable' in last_telegram_message.message.text.lower():
-                    update_alarm_state('disarmed')
-                if 'status' in last_telegram_message.message.text.lower():
-                    message_id = last_telegram_message.message.message_id
-                    if status_replied['initial_check']:
-                        status_replied['initial_check'] = False
-                        status_replied[message_id] = True
-                    if message_id not in status_replied:
-                        telegram_send_message('rpi-security status: %s' % prepare_status(alarm_state))
-                        status_replied[message_id] = True
-        if alarm_state['current_state'] != 'disabled':
-            if now - alarm_state['last_packet'] > 720:
-                update_alarm_state('armed')
-            elif now - alarm_state['last_packet'] > 700:
-                arp_ping_macs()
-            else:
-                update_alarm_state('disarmed')
+        return '*rpi-security status*\nCurrent state: _%s_\nLast state: _%s_\nLast change: _%s_\nUptime: _%s_\nLast MAC detected: _%s_ at _%s_\nAlarm triggered: _%s_' % (current_state, previous_state, last_state_change, up_time, last_packet_mac, last_packet, alarm_triggered)
+    def save_chat_id(bot, update):
+        if 'telegram_chat_id' not in state:
+            state['telegram_chat_id'] = update.message.chat_id
+            write_state_file(state_file=args.state_file, state_data=state)
+            logger.debug('Set Telegram chat_id %s' % update.message.chat_id)
+    def status(bot, update):
+        bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text=prepare_status(alarm_state), timeout=10)
+    def disable(bot, update):
+        update_alarm_state('disabled')
+    def enable(bot, update):
+        update_alarm_state('disarmed')
+    def error(bot, update, error):
+        logger.error('Update "%s" caused error "%s"' % (update, error))
+    updater = Updater(token)
+    dp = updater.dispatcher
+    dp.add_handler(RegexHandler('.*', save_chat_id), group=1)
+    dp.add_handler(CommandHandler("status", status))
+    dp.add_handler(CommandHandler("disable", disable))
+    dp.add_handler(CommandHandler("enable", enable))
+    dp.add_error_handler(error)
+    logger.info("thread running")
+    updater.start_polling(timeout=10)
 
 def motion_detected(n):
     """
@@ -273,8 +281,8 @@ def motion_detected(n):
 
 def exit_cleanup():
     GPIO.cleanup()
-    if 'camera' in config:
-        config['camera'].close()
+    if 'camera' in vars():
+        camera.close()
 
 def exit_clean(signal = None, frame = None):
     logger.info("rpi-security stopping...")
@@ -317,13 +325,15 @@ def setup_logging(debug_mode = False):
 if __name__ == "__main__":
     # Parse arguments and configuration, set up logging
     args = parse_arguments()
-    config = parse_configfile(args.config_file)
     logger = setup_logging(args.debug)
+    config = parse_config_file(args.config_file)
+    state = read_state_file(args.state_file)
     sys.excepthook = exception_handler
+    captured_photos = []
     # Some intial checks before proceeding
     if check_monitor_mode(config['network_interface']):
         config['network_interface_mac'] = get_interface_mac_addr(config['network_interface'])
-        # Hard coded interface name here. Need a better solution
+        # Hard coded interface name here. Need a better solution...
         config['network_address'] = get_network_address('wlan0')
     else:
         exit_error('Interface %s does not exist, is not in monitor mode, is not up or MAC address unknown.' % config['network_interface'])
@@ -338,30 +348,33 @@ if __name__ == "__main__":
     logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
     from scapy.all import srp, Ether, ARP
     import telegram
+    from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler
     from threading import Thread, current_thread
     try:
-        config['camera'] = picamera.PiCamera()
-        config['camera'].resolution = (2592, 1944)
-        config['camera'].vflip = True
-        config['camera'].led = False
+        camera = picamera.PiCamera()
+        camera.resolution = (2592, 1944)
+        camera.vflip = True
+        camera.led = False
     except Exception as e:
         exit_error('Camera module failed to intialise with error %s' % e)
     try:
-        config['bot'] = telegram.Bot(token=config['telegram_bot_token'])
+        bot = telegram.Bot(token=config['telegram_bot_token'])
     except Exception as e:
         exit_error('Failed to connect to Telegram with error: %s' % e)
-    config['telegram_chat_id'] = telegram_get_chat_id()
     # Set the initial alarm_state dictionary
     alarm_state = {
         'start_time': time.time(),
         'current_state': 'disarmed',
-        'previous_state': 'not_running',
+        'previous_state': 'stopped',
         'last_state_change': time.time(),
         'last_packet': time.time(),
         'last_packet_mac': None,
         'alarm_triggered': False
     }
-    captured_photos = []
+    # Start the threads
+    telegram_bot_thread = Thread(name='telegram_bot', target=telegram_bot, kwargs={'token': config['telegram_bot_token']})
+    telegram_bot_thread.daemon = True
+    telegram_bot_thread.start()
     monitor_alarm_state_thread = Thread(name='monitor_alarm_state', target=monitor_alarm_state)
     monitor_alarm_state_thread.daemon = True
     monitor_alarm_state_thread.start()

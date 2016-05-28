@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='rpi-security',
-    version='0.2',
+    version='0.3',
     author=u'Max Williams',
     author_email='futuresharks@gmail.com',
     url='https://github.com/FutureSharks/rpi-security',
@@ -12,7 +12,8 @@ setup(
     scripts = [ 'bin/rpi-security.py' ],
     data_files=[
         ('/lib/systemd/system', ['etc/rpi-security.service']),
-        ('/etc', ['etc/rpi-security.conf'])
+        ('/etc', ['etc/rpi-security.conf']),
+        ('/var/lib/rpi-security', ['etc/state.yaml'])
     ],
     install_requires=[
         'python-telegram-bot',
@@ -20,7 +21,8 @@ setup(
         'netaddr',
         'requests',
         'requests[security]',
-        'netifaces'
+        'netifaces',
+        'pyyaml'
     ],
     classifiers=[
     'Environment :: Console',

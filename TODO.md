@@ -1,9 +1,5 @@
 # rpi-sec to do list
 
-Include some formatting in Telegram messages.
-
-What to do when the Telegram chat ID can't be got?
-
 Add a udev rule for monitor interface instead of having it in the systemd service file?
 
 Implement some form of LED indicator where a colour shows the alarm state.

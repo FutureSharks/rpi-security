@@ -65,6 +65,7 @@ You can send the Telegram bot commands that trigger certain actions.
   - */disable*: Disables the service until re-enabled.
   - */enable*: Enables the service after it being disabled.
   - */status*: Sends a status report.
+  - */photo*: Captures and sends a photo.
 
 ![rpi-security 4](../master/images/rpi-security-status-message.png?raw=true)
 

@@ -82,18 +82,22 @@ def write_state_file(state_file, state_data):
     else:
         logger.debug('State file written: %s' % state_file)
 
-def take_photo():
+def take_photo(output_file):
     """
-    Captures a photo and appends it to the captured_photos list for processessing.
+    Captures a photo and saves it disk.
     """
-    camera_output_file = config['image_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + ".jpg"
     if args.debug:
         GPIO.output(32,True)
         time.sleep(0.25)
         GPIO.output(32,False)
-    camera.capture(camera_output_file)
-    logger.info("Captured image: %s" % camera_output_file)
-    captured_photos.append(camera_output_file)
+    try:
+        camera.capture(output_file)
+        logger.info("Captured image: %s" % output_file)
+    except Exception as e:
+        logger.error('Failed to take photo: %s' % e)
+        return False
+    else:
+        return True
 
 def archive_photo(photo_path):
     #command = 'cp %(source) %(destination)' % {"source": "/var/tmp/blah", "destination": "s3/blah/blah"}
@@ -247,6 +251,9 @@ def telegram_bot(token):
         update_alarm_state('disabled')
     def enable(bot, update):
         update_alarm_state('disarmed')
+    def photo(bot, update):
+        take_photo('/var/tmp/rpi-sec-photo-tmp.jpeg')
+        bot.sendPhoto(update.message.chat_id, photo=open('/var/tmp/rpi-sec-photo-tmp.jpeg', 'rb'), timeout=30)
     def error(bot, update, error):
         logger.error('Update "%s" caused error "%s"' % (update, error))
     updater = Updater(token)
@@ -255,6 +262,7 @@ def telegram_bot(token):
     dp.add_handler(CommandHandler("status", status))
     dp.add_handler(CommandHandler("disable", disable))
     dp.add_handler(CommandHandler("enable", enable))
+    dp.add_handler(CommandHandler("photo", photo))
     dp.add_error_handler(error)
     logger.info("thread running")
     updater.start_polling(timeout=10)
@@ -266,16 +274,11 @@ def motion_detected(n):
     current_state = alarm_state['current_state']
     if current_state == 'armed':
         logger.info('Motion detected')
-        take_photo()
-        time.sleep(0.5)
-        take_photo()
-        time.sleep(0.5)
-        take_photo()
-        time.sleep(0.5)
-        take_photo()
-        time.sleep(0.5)
-        take_photo()
-        time.sleep(0.5)
+        file_prefix = config['image_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        for i in range(0, 5, 1):
+            camera_output_file = "%s-%s.jpeg" % (file_prefix, i)
+            take_photo(camera_output_file)
+            captured_photos.append(camera_output_file)
     else:
         logger.debug('Motion detected but current_state is: %s' % current_state)
 

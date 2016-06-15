@@ -1,5 +1,7 @@
 # rpi-sec to do list
 
+Add more debug for bot stuff
+
 Add a udev rule for monitor interface instead of having it in the systemd service file?
 
 Implement some form of LED indicator where a colour shows the alarm state.

@@ -1,14 +1,16 @@
 #!/usr/bin/python
 
-import os, argparse, logging, logging.handlers
+import os
+import argparse
+import logging
+import logging.handlers
 from ConfigParser import SafeConfigParser
 import RPi.GPIO as GPIO
-GPIO.setwarnings(False)
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(32, GPIO.OUT, initial=False)
-
-from datetime import datetime
-import sys, time, logging, signal, yaml
+from datetime import datetime, timedelta
+import sys
+import time
+import signal
+import yaml
 
 def parse_arguments():
     p = argparse.ArgumentParser(description='A simple security system to run on a Raspberry Pi.')
@@ -38,8 +40,8 @@ def get_network_address(interface_name):
     """
     from netaddr import IPNetwork
     from netifaces import ifaddresses
-    interface_details = ip = ifaddresses(interface_name)
-    my_network = IPNetwork('%s/%s' % (ip[2][0]['addr'], ip[2][0]['netmask']))
+    interface_details = ifaddresses(interface_name)
+    my_network = IPNetwork('%s/%s' % (interface_details[2][0]['addr'], interface_details[2][0]['netmask']))
     network_address = my_network.cidr
     logger.debug('Calculated network: %s' % network_address)
     return str(network_address)
@@ -58,9 +60,9 @@ def get_interface_mac_addr(network_interface):
     return result
 
 def parse_config_file(config_file):
-    config = SafeConfigParser()
-    config.read(config_file)
-    return dict(config.items('main'))
+    cfg = SafeConfigParser()
+    cfg.read(config_file)
+    return dict(cfg.items('main'))
 
 def read_state_file(state_file):
     result = {}
@@ -74,6 +76,9 @@ def read_state_file(state_file):
     return result
 
 def write_state_file(state_file, state_data):
+    """
+    Writes a state file to disk.
+    """
     try:
         with open(state_file, 'w') as f:
             yaml.dump(state_data, f, default_flow_style=False)
@@ -87,9 +92,9 @@ def take_photo(output_file):
     Captures a photo and saves it disk.
     """
     if args.debug:
-        GPIO.output(32,True)
+        GPIO.output(32, True)
         time.sleep(0.25)
-        GPIO.output(32,False)
+        GPIO.output(32, False)
     try:
         camera.capture(output_file)
         logger.info("Captured image: %s" % output_file)
@@ -128,9 +133,9 @@ def telegram_send_photo(file_path):
         logger.info('Telegram file sent: %s' % file_path)
         return True
 
-def arp_ping_macs():
+def arp_ping_macs(mac_addresses, repeat=1):
     """
-    Performs an ARP scan of a destination MAC address to try and determine is it is alive.
+    Performs an ARP scan of a destination MAC address to try and determine if they are present on the network.
     """
     def _arp_ping(mac_address, ip_address):
         result = False
@@ -141,13 +146,17 @@ def arp_ping_macs():
                 result.append(str(reply[0].pdst))
                 result = ', '.join(result)
         return result
-    for mac_address in config['mac_addresses']:
-        result = _arp_ping(mac_address, config['network_address'])
-        if result:
-            logger.debug('MAC %s responded to ARP ping with address %s' % (mac_address, result))
-            break
-        else:
-            logger.debug('MAC %s did not respond to ARP ping' % mac_address)
+    while repeat > 0:
+        for mac_address in mac_addresses:
+            result = _arp_ping(mac_address, config['network_address'])
+            if result:
+                logger.debug('MAC %s responded to ARP ping with address %s' % (mac_address, result))
+                break
+            else:
+                logger.debug('MAC %s did not respond to ARP ping' % mac_address)
+        if repeat > 1:
+            time.sleep(2)
+        repeat -= 1
 
 def process_photos():
     """
@@ -158,23 +167,19 @@ def process_photos():
     logger.info("thread running")
     while True:
         if len(captured_photos) > 0:
-            arp_ping_macs()
-            time.sleep(1)
-            arp_ping_macs()
-            time.sleep(2)
-            arp_ping_macs()
-            time.sleep(3)
-            now = time.time()
-            if now - alarm_state['last_packet'] < 30:
+            arp_ping_macs(mac_addresses=config['mac_addresses'], repeat=3)
+            if time.time() - alarm_state['last_packet'] < 60:
                 for photo in list(captured_photos):
                     logger.info('Removing photo as it is a false positive: %s' % photo)
                     captured_photos.remove(photo)
                     # Delete the photo file
             else:
                 logger.debug('Starting to process photos')
-                alarm_state['alarm_triggered'] = True
                 for photo in list(captured_photos):
+                    if time.time() - alarm_state['last_packet'] < 700:
+                        break
                     logger.debug('Processing the photo: %s' % photo)
+                    alarm_state['alarm_triggered'] = True
                     if telegram_send_photo(photo):
                         archive_photo(photo)
                         captured_photos.remove(photo)
@@ -223,7 +228,7 @@ def monitor_alarm_state():
             if now - alarm_state['last_packet'] > 720:
                 update_alarm_state('armed')
             elif now - alarm_state['last_packet'] > 700:
-                arp_ping_macs()
+                arp_ping_macs(config['mac_addresses'])
             else:
                 update_alarm_state('disarmed')
 
@@ -233,18 +238,20 @@ def telegram_bot(token):
     """
     def prepare_status(alarm_state_dict):
         current_state = alarm_state_dict['current_state']
-        up_time = time.strftime("%H:%M:%S", time.gmtime(time.time() - alarm_state_dict['start_time']))
+        uptime = str(timedelta(seconds=time.time() - alarm_state_dict['start_time']))
         previous_state = alarm_state_dict['previous_state']
-        last_state_change = time.strftime("%D %H:%M", time.localtime(int(alarm_state_dict['last_state_change'])))
-        last_packet = time.strftime("%D %H:%M", time.localtime(int(alarm_state_dict['last_packet'])))
+        last_state_change = time.strftime("%d/%m/%Y %H:%M", time.localtime(int(alarm_state_dict['last_state_change'])))
+        last_packet = time.strftime("%d/%m/%Y %H:%M", time.localtime(int(alarm_state_dict['last_packet'])))
         last_packet_mac = alarm_state_dict['last_packet_mac']
         alarm_triggered = alarm_state_dict['alarm_triggered']
-        return '*rpi-security status*\nCurrent state: _%s_\nLast state: _%s_\nLast change: _%s_\nUptime: _%s_\nLast MAC detected: _%s_ at _%s_\nAlarm triggered: _%s_' % (current_state, previous_state, last_state_change, up_time, last_packet_mac, last_packet, alarm_triggered)
+        return '*rpi-security status*\nCurrent state: _%s_\nLast state: _%s_\nLast change: _%s_\nUptime: _%s_\nLast MAC detected: _%s_ at _%s_\nAlarm triggered: _%s_' % (current_state, previous_state, last_state_change, uptime, last_packet_mac, last_packet, alarm_triggered)
     def save_chat_id(bot, update):
         if 'telegram_chat_id' not in state:
             state['telegram_chat_id'] = update.message.chat_id
             write_state_file(state_file=args.state_file, state_data=state)
             logger.debug('Set Telegram chat_id %s' % update.message.chat_id)
+    def help(bot, update):
+        bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text='/status: Request status\n/disable: Disable alarm\n/enable: Enable alarm\n/photo: Take a photo\n', timeout=10)
     def status(bot, update):
         bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text=prepare_status(alarm_state), timeout=10)
     def disable(bot, update):
@@ -259,6 +266,7 @@ def telegram_bot(token):
     updater = Updater(token)
     dp = updater.dispatcher
     dp.add_handler(RegexHandler('.*', save_chat_id), group=1)
+    dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("status", status))
     dp.add_handler(CommandHandler("disable", disable))
     dp.add_handler(CommandHandler("enable", enable))
@@ -267,7 +275,7 @@ def telegram_bot(token):
     logger.info("thread running")
     updater.start_polling(timeout=10)
 
-def motion_detected(n):
+def motion_detected(channel):
     """
     Capture a photo if motion is detected and the alarm state is armed
     """
@@ -287,7 +295,7 @@ def exit_cleanup():
     if 'camera' in vars():
         camera.close()
 
-def exit_clean(signal = None, frame = None):
+def exit_clean(signal=None, frame=None):
     logger.info("rpi-security stopping...")
     exit_cleanup()
     sys.exit(0)
@@ -303,9 +311,9 @@ def exit_error(message):
         os._exit(1)
 
 def exception_handler(type, value, tb):
-    logger.exception("Uncaught exception: {0}".format(str(value)))
+    logger.exception("Uncaught exception: {0}" % format(str(value)))
 
-def setup_logging(debug_mode = False):
+def setup_logging(debug_mode=False):
     logger = logging.getLogger(__name__)
     if debug_mode:
         stdout_level = logging.DEBUG
@@ -326,6 +334,7 @@ def setup_logging(debug_mode = False):
     return logger
 
 if __name__ == "__main__":
+    GPIO.setwarnings(False)
     # Parse arguments and configuration, set up logging
     args = parse_arguments()
     logger = setup_logging(args.debug)
@@ -353,6 +362,8 @@ if __name__ == "__main__":
     import telegram
     from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler
     from threading import Thread, current_thread
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(32, GPIO.OUT, initial=False)
     try:
         camera = picamera.PiCamera()
         camera.resolution = (2592, 1944)

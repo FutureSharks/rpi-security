@@ -65,17 +65,21 @@ def parse_config_file(config_file):
     default_config = {
         'image_path': '/var/tmp',
         'network_interface': 'mon0',
-        'packet_timeout': 700,
-        'debug_mode': False,
-        'pir_pin': 14,
+        'packet_timeout': '700',
+        'debug_mode': 'False',
+        'pir_pin': '14',
     }
     cfg = SafeConfigParser(defaults=default_config)
     cfg.read(config_file)
-    config = dict(cfg.items('main'))
-    config['debug_mode'] = str2bool(config['debug_mode'])
-    config['pir_pin'] = int(config['pir_pin'])
-    config['packet_timeout'] = int(config['packet_timeout'])
-    return config
+    dict_config = dict(cfg.items('main'))
+    dict_config['debug_mode'] = str2bool(dict_config['debug_mode'])
+    dict_config['pir_pin'] = int(dict_config['pir_pin'])
+    dict_config['packet_timeout'] = int(dict_config['packet_timeout'])
+    if ',' in dict_config['mac_addresses']:
+        dict_config['mac_addresses'] = dict_config['mac_addresses'].split(',')
+    else:
+        dict_config['mac_addresses'] = [ dict_config['mac_addresses'] ]
+    return dict_config
 
 def read_state_file(state_file):
     result = {}
@@ -369,10 +373,6 @@ if __name__ == "__main__":
         exit_error('Interface %s does not exist, is not in monitor mode, is not up or MAC address unknown.' % config['network_interface'])
     if not os.geteuid() == 0:
         exit_error('%s must be run as root' % sys.argv[0])
-    if ',' in config['mac_addresses']:
-        config['mac_addresses'] = config['mac_addresses'].split(',')
-    else:
-        config['mac_addresses'] = [ config['mac_addresses'] ]
     # Now begin importing slow modules and setting up camera, Telegram and threads
     import picamera
     logging.getLogger("scapy.runtime").setLevel(logging.ERROR)

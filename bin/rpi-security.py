@@ -60,9 +60,22 @@ def get_interface_mac_addr(network_interface):
     return result
 
 def parse_config_file(config_file):
-    cfg = SafeConfigParser()
+    def str2bool(v):
+        return v.lower() in ("yes", "true", "t", "1")
+    default_config = {
+        'image_path': '/var/tmp',
+        'network_interface': 'mon0',
+        'packet_timeout': 700,
+        'debug_mode': False,
+        'pir_pin': 14,
+    }
+    cfg = SafeConfigParser(defaults=default_config)
     cfg.read(config_file)
-    return dict(cfg.items('main'))
+    config = dict(cfg.items('main'))
+    config['debug_mode'] = str2bool(config['debug_mode'])
+    config['pir_pin'] = int(config['pir_pin'])
+    config['packet_timeout'] = int(config['packet_timeout'])
+    return config
 
 def read_state_file(state_file):
     result = {}
@@ -147,6 +160,8 @@ def arp_ping_macs(mac_addresses, repeat=1):
                 result = ', '.join(result)
         return result
     while repeat > 0:
+        if time.time() - alarm_state['last_packet'] < 30:
+            break
         for mac_address in mac_addresses:
             result = _arp_ping(mac_address, config['network_address'])
             if result:
@@ -176,7 +191,7 @@ def process_photos():
             else:
                 logger.debug('Starting to process photos')
                 for photo in list(captured_photos):
-                    if time.time() - alarm_state['last_packet'] < 700:
+                    if time.time() - alarm_state['last_packet'] < 300:
                         break
                     logger.debug('Processing the photo: %s' % photo)
                     alarm_state['alarm_triggered'] = True
@@ -225,9 +240,9 @@ def monitor_alarm_state():
         time.sleep(5)
         now = time.time()
         if alarm_state['current_state'] != 'disabled':
-            if now - alarm_state['last_packet'] > 720:
+            if now - alarm_state['last_packet'] > config['packet_timeout'] + 20:
                 update_alarm_state('armed')
-            elif now - alarm_state['last_packet'] > 700:
+            elif now - alarm_state['last_packet'] > config['packet_timeout']:
                 arp_ping_macs(config['mac_addresses'])
             else:
                 update_alarm_state('disarmed')
@@ -313,19 +328,22 @@ def exit_error(message):
 def exception_handler(type, value, tb):
     logger.exception("Uncaught exception: {0}" % format(str(value)))
 
-def setup_logging(debug_mode=False):
+def setup_logging(debug_mode=False, log_to_stdout=False):
     logger = logging.getLogger(__name__)
-    if debug_mode:
+    logger.setLevel(logging.DEBUG)
+    syslog_handler = logging.handlers.SysLogHandler(address = '/dev/log')
+    syslog_format = logging.Formatter("%(filename)s:%(threadName)s %(message)s", "%Y-%m-%d %H:%M:%S")
+    syslog_handler.setFormatter(syslog_format)
+    if log_to_stdout:
         stdout_level = logging.DEBUG
         stdout_format = logging.Formatter("%(asctime)s %(levelname)-7s %(filename)s:%(lineno)-3s %(threadName)-19s %(message)s", "%Y-%m-%d %H:%M:%S")
     else:
         stdout_level = logging.CRITICAL
         stdout_format = logging.Formatter("ERROR: %(message)s")
-    logger.setLevel(logging.DEBUG)
-    syslog_handler = logging.handlers.SysLogHandler(address = '/dev/log')
-    syslog_format = logging.Formatter("%(filename)s:%(threadName)s %(message)s", "%Y-%m-%d %H:%M:%S")
-    syslog_handler.setFormatter(syslog_format)
-    syslog_handler.setLevel(logging.INFO)
+    if debug_mode:
+        syslog_handler.setLevel(logging.DEBUG)
+    else:
+        syslog_handler.setLevel(logging.INFO)
     logger.addHandler(syslog_handler)
     stdout_handler = logging.StreamHandler()
     stdout_handler.setFormatter(stdout_format)
@@ -337,8 +355,8 @@ if __name__ == "__main__":
     GPIO.setwarnings(False)
     # Parse arguments and configuration, set up logging
     args = parse_arguments()
-    logger = setup_logging(args.debug)
     config = parse_config_file(args.config_file)
+    logger = setup_logging(debug_mode=config['debug_mode'], log_to_stdout=args.debug)
     state = read_state_file(args.state_file)
     sys.excepthook = exception_handler
     captured_photos = []
@@ -401,8 +419,8 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, exit_clean)
     time.sleep(2)
     try:
-        GPIO.setup(int(config['pir_pin']), GPIO.IN)
-        GPIO.add_event_detect(int(config['pir_pin']), GPIO.RISING, callback=motion_detected)
+        GPIO.setup(config['pir_pin'], GPIO.IN)
+        GPIO.add_event_detect(config['pir_pin'], GPIO.RISING, callback=motion_detected)
         logger.info("rpi-security running")
         telegram_send_message('rpi-security running')
         while 1:

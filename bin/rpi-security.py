@@ -76,9 +76,9 @@ def parse_config_file(config_file):
     dict_config['pir_pin'] = int(dict_config['pir_pin'])
     dict_config['packet_timeout'] = int(dict_config['packet_timeout'])
     if ',' in dict_config['mac_addresses']:
-        dict_config['mac_addresses'] = dict_config['mac_addresses'].split(',')
+        dict_config['mac_addresses'] = dict_config['mac_addresses'].lower().split(',')
     else:
-        dict_config['mac_addresses'] = [ dict_config['mac_addresses'] ]
+        dict_config['mac_addresses'] = [ dict_config['mac_addresses'].lower() ]
     return dict_config
 
 def read_state_file(state_file):

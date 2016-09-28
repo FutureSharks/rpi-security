@@ -159,9 +159,11 @@ def arp_ping_macs(mac_addresses, repeat=1):
         answered,unanswered = srp(Ether(dst=mac_address)/ARP(pdst=ip_address), timeout=1, verbose=False)
         if len(answered) > 0:
             for reply in answered:
-                result = []
-                result.append(str(reply[0].pdst))
-                result = ', '.join(result)
+                if reply[1].hwsrc == mac_address:
+                    if type(result) is not list:
+                        result = []
+                    result.append(str(reply[1].psrc))
+                    result = ', '.join(result)
         return result
     while repeat > 0:
         if time.time() - alarm_state['last_packet'] < 30:
@@ -186,22 +188,22 @@ def process_photos():
     logger.info("thread running")
     while True:
         if len(captured_photos) > 0:
-            arp_ping_macs(mac_addresses=config['mac_addresses'], repeat=3)
-            if time.time() - alarm_state['last_packet'] < 60:
+            if alarm_state['current_state'] == 'armed':
+                arp_ping_macs(mac_addresses=config['mac_addresses'], repeat=3)
                 for photo in list(captured_photos):
-                    logger.info('Removing photo as it is a false positive: %s' % photo)
-                    captured_photos.remove(photo)
-                    # Delete the photo file
-            else:
-                logger.debug('Starting to process photos')
-                for photo in list(captured_photos):
-                    if time.time() - alarm_state['last_packet'] < 300:
+                    if alarm_state['current_state'] != 'armed':
                         break
                     logger.debug('Processing the photo: %s' % photo)
                     alarm_state['alarm_triggered'] = True
                     if telegram_send_photo(photo):
                         archive_photo(photo)
                         captured_photos.remove(photo)
+            else:
+                logger.debug('Stopping photo processing as state is now %s' % alarm_state['current_state'])
+                for photo in list(captured_photos):
+                    logger.info('Removing photo as it is a false positive: %s' % photo)
+                    captured_photos.remove(photo)
+                    # Delete the photo file
         time.sleep(5)
 
 def capture_packets(network_interface, network_interface_mac, mac_addresses):
@@ -241,7 +243,7 @@ def monitor_alarm_state():
     """
     logger.info("thread running")
     while True:
-        time.sleep(5)
+        time.sleep(3)
         now = time.time()
         if alarm_state['current_state'] != 'disabled':
             if now - alarm_state['last_packet'] > config['packet_timeout'] + 20:

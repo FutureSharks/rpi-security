@@ -379,6 +379,9 @@ if __name__ == "__main__":
     import picamera
     logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
     from scapy.all import srp, Ether, ARP
+    from scapy.all import conf as scapy_conf
+    scapy_conf.promisc=0
+    scapy_conf.sniff_promisc=0
     import telegram
     from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler
     from threading import Thread, current_thread

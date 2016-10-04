@@ -271,17 +271,28 @@ def telegram_bot(token):
             state['telegram_chat_id'] = update.message.chat_id
             write_state_file(state_file=args.state_file, state_data=state)
             logger.debug('Set Telegram chat_id %s' % update.message.chat_id)
+    def check_chat_id(update):
+        if update.message.chat_id != state['telegram_chat_id']:
+            logger.debug('Ignoring Telegam update with filtered chat id %s: %s' % (update.message.chat_id, update.message.text))
+            return False
+        else:
+            return True
     def help(bot, update):
-        bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text='/status: Request status\n/disable: Disable alarm\n/enable: Enable alarm\n/photo: Take a photo\n', timeout=10)
+        if check_chat_id(update):
+            bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text='/status: Request status\n/disable: Disable alarm\n/enable: Enable alarm\n/photo: Take a photo\n', timeout=10)
     def status(bot, update):
-        bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text=prepare_status(alarm_state), timeout=10)
+        if check_chat_id(update):
+            bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text=prepare_status(alarm_state), timeout=10)
     def disable(bot, update):
-        update_alarm_state('disabled')
+        if check_chat_id(update):
+            update_alarm_state('disabled')
     def enable(bot, update):
-        update_alarm_state('disarmed')
+        if check_chat_id(update):
+            update_alarm_state('disarmed')
     def photo(bot, update):
-        take_photo('/var/tmp/rpi-sec-photo-tmp.jpeg')
-        bot.sendPhoto(update.message.chat_id, photo=open('/var/tmp/rpi-sec-photo-tmp.jpeg', 'rb'), timeout=30)
+        if check_chat_id(update):
+            take_photo('/var/tmp/rpi-sec-photo-tmp.jpeg')
+            bot.sendPhoto(update.message.chat_id, photo=open('/var/tmp/rpi-sec-photo-tmp.jpeg', 'rb'), timeout=30)
     def error(bot, update, error):
         logger.error('Update "%s" caused error "%s"' % (update, error))
     updater = Updater(token)

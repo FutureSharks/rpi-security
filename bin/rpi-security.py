@@ -258,14 +258,24 @@ def telegram_bot(token):
     This function runs the telegram bot that responds to commands like /enable, /disable or /status.
     """
     def prepare_status(alarm_state_dict):
-        current_state = alarm_state_dict['current_state']
-        uptime = str(timedelta(seconds=time.time() - alarm_state_dict['start_time']))
-        previous_state = alarm_state_dict['previous_state']
-        last_state_change = time.strftime("%d/%m/%Y %H:%M", time.localtime(int(alarm_state_dict['last_state_change'])))
-        last_packet = time.strftime("%d/%m/%Y %H:%M", time.localtime(int(alarm_state_dict['last_packet'])))
-        last_packet_mac = alarm_state_dict['last_packet_mac']
-        alarm_triggered = alarm_state_dict['alarm_triggered']
-        return '*rpi-security status*\nCurrent state: _%s_\nLast state: _%s_\nLast change: _%s_\nUptime: _%s_\nLast MAC detected: _%s_ at _%s_\nAlarm triggered: _%s_' % (current_state, previous_state, last_state_change, uptime, last_packet_mac, last_packet, alarm_triggered)
+        def readable_delta(then, now=time.time()):
+            td = timedelta(seconds=now - then)
+            days, hours, minutes = td.days, td.seconds // 3600, td.seconds // 60 % 60
+            text = '%s minutes' % minutes
+            if hours > 0:
+                text = '%s hours and ' % hours + text
+                if days > 0:
+                    text = '%s days, ' % days + text
+            return text
+        return '*rpi-security status*\nCurrent state: _%s_\nLast state: _%s_\nLast change: _%s ago_\nUptime: _%s_\nLast MAC detected: _%s %s ago_\nAlarm triggered: _%s_' % (
+                alarm_state_dict['current_state'],
+                alarm_state_dict['previous_state'],
+                readable_delta(alarm_state_dict['last_state_change']),
+                readable_delta(alarm_state_dict['start_time']),
+                alarm_state_dict['last_packet_mac'],
+                readable_delta(alarm_state_dict['last_packet']),
+                alarm_state_dict['alarm_triggered']
+            )
     def save_chat_id(bot, update):
         if 'telegram_chat_id' not in state:
             state['telegram_chat_id'] = update.message.chat_id

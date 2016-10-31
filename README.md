@@ -28,7 +28,7 @@ You will need this hardware:
   - An enclosure of some sort. Details of the hardware I made is [here](hardware).
 
 Other requirements:
-  - A [Telegram bot](https://telegram.org/). It's free and easy to setup.
+  - A [Telegram bot](https://telegram.org/blog/bot-revolution). It's free and easy to setup.
   - Raspbian distribution installed. I used Jessie lite. You could possibly use a different OS but I haven't tried it.
   - Python 2.7.
 
@@ -50,7 +50,7 @@ The application resets a counter when packets are detected and if the counter go
 
 ### Notifications
 
-A [Telegram](https://telegram.org/) bot is used to send notifications with the captured images. They have good mobile applications and a nice API. You can also view the messages in a browser and messages are synced across devices.
+A [Telegram](https://telegram.org/blog/bot-revolution) bot is used to send notifications with the captured images. They have good mobile applications and a nice API. You can also view the messages in a browser and messages are synced across devices.
 
 If the system is in an armed state and motion is detected then a message with the captured image is sent to you from the Telegram bot.
 
@@ -66,6 +66,7 @@ You can send the Telegram bot commands that trigger certain actions.
   - */enable*: Enables the service after it being disabled.
   - */status*: Sends a status report.
   - */photo*: Captures and sends a photo.
+  - */gif*: Captures and sends a gif.
 
 ![rpi-security 4](../master/images/rpi-security-status-message.png?raw=true)
 
@@ -103,6 +104,7 @@ Install current master of scapy as the current release is missing a required bug
 
 ```
 sudo pip install https://github.com/secdev/scapy/zipball/master
+sudo pip --no-cache-dir install 'Pillow>=3.4.0'
 ```
 
 Install rpi-security, reload systemd configuration and enable the service:
@@ -113,7 +115,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable rpi-security.service
 ```
 
-Add your MAC address or addresses and Telegram bot API key to ``/etc/rpi-security.conf``.
+Add your MAC address or addresses, Telegram bot API key and any other changes to ``/etc/rpi-security.conf``.
 
 Ensure you have enabled the camera module using ``raspi-config``.
 

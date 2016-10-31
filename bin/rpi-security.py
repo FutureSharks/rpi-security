@@ -63,17 +63,26 @@ def parse_config_file(config_file):
     def str2bool(v):
         return v.lower() in ("yes", "true", "t", "1")
     default_config = {
-        'image_path': '/var/tmp',
+        'camera_save_path': '/var/tmp',
         'network_interface': 'mon0',
         'packet_timeout': '700',
         'debug_mode': 'False',
         'pir_pin': '14',
+        'camera_vflip': 'False',
+        'camera_hflip': 'False',
+        'camera_image_size': '1024x768',
+        'camera_mode': 'video',
+        'camera_capture_length': '3'
     }
     cfg = SafeConfigParser(defaults=default_config)
     cfg.read(config_file)
     dict_config = dict(cfg.items('main'))
     dict_config['debug_mode'] = str2bool(dict_config['debug_mode'])
+    dict_config['camera_vflip'] = str2bool(dict_config['camera_vflip'])
+    dict_config['camera_hflip'] = str2bool(dict_config['camera_hflip'])
     dict_config['pir_pin'] = int(dict_config['pir_pin'])
+    dict_config['camera_image_size'] = tuple([int(x) for x in dict_config['camera_image_size'].split('x')])
+    dict_config['camera_capture_length'] = int(dict_config['camera_capture_length'])
     dict_config['packet_timeout'] = int(dict_config['packet_timeout'])
     if ',' in dict_config['mac_addresses']:
         dict_config['mac_addresses'] = dict_config['mac_addresses'].lower().split(',')
@@ -114,11 +123,33 @@ def take_photo(output_file):
         GPIO.output(32, False)
     try:
         camera.capture(output_file)
-        logger.info("Captured image: %s" % output_file)
     except Exception as e:
         logger.error('Failed to take photo: %s' % e)
         return False
     else:
+        logger.info("Captured image: %s" % output_file)
+        return True
+
+def take_gif(output_file, length):
+    temp_jpeg_path = config['camera_save_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + 'gif-part'
+    jpeg_files = ['%s-%s.jpg' % (temp_jpeg_path, i) for i in range(length*3)]
+    try:
+        for jpeg in jpeg_files:
+            camera.capture(jpeg, resize=(800,600))
+        im=Image.open(jpeg_files[0])
+        jpeg_files_no_first_frame=[x for x in jpeg_files if x != jpeg_files[0]]
+        ims = [Image.open(i) for i in jpeg_files_no_first_frame]
+        im.save(output_file, append_images=ims, save_all=True, loop=0, duration=200)
+        im.close()
+        for imfile in ims:
+            imfile.close()
+        for jpeg in jpeg_files:
+            os.remove(jpeg)
+    except Exception as e:
+        logger.error('Failed to create GIF: %s' % e)
+        return False
+    else:
+        logger.info("Captured gif: %s" % output_file)
         return True
 
 def archive_photo(photo_path):
@@ -138,14 +169,23 @@ def telegram_send_message(message):
         logger.info('Telegram message Sent: "%s"' % message)
         return True
 
-def telegram_send_photo(file_path):
+def telegram_send_file(file_path):
     if 'telegram_chat_id' not in state:
         logger.error('Telegram failed to send file %s because Telegram chat_id is not set. Send a message to the Telegram bot' % file_path)
         return False
+    filename, file_extension = os.path.splitext(file_path)
     try:
-        bot.sendPhoto(chat_id=state['telegram_chat_id'], photo=open(file_path, 'rb'), timeout=10)
+        if file_extension == '.mp4':
+            bot.sendVideo(chat_id=state['telegram_chat_id'], video=open(file_path, 'rb'), timeout=30)
+        elif file_extension == '.gif':
+            bot.sendDocument(chat_id=state['telegram_chat_id'], document=open(file_path, 'rb'), timeout=30)
+        elif file_extension == '.jpeg':
+            bot.sendPhoto(chat_id=state['telegram_chat_id'], photo=open(file_path, 'rb'), timeout=10)
+        else:
+            logger.error('Uknown file not sent: %s' % file_path)
     except Exception as e:
         logger.error('Telegram failed to send file %s with exception: %s' % (file_path, e))
+        return False
     else:
         logger.info('Telegram file sent: %s' % file_path)
         return True
@@ -181,28 +221,28 @@ def arp_ping_macs(mac_addresses, repeat=1):
 
 def process_photos():
     """
-    Monitors the captured_photos list for newly captured photos.
+    Monitors the captured_from_camera list for newly captured photos.
     When a new photos are present it will run arp_ping_macs to remove false positives and then send the photos via Telegram.
     After successfully sendind the photo it will also archive the photo and remove it from the list.
     """
     logger.info("thread running")
     while True:
-        if len(captured_photos) > 0:
+        if len(captured_from_camera) > 0:
             if alarm_state['current_state'] == 'armed':
                 arp_ping_macs(mac_addresses=config['mac_addresses'], repeat=3)
-                for photo in list(captured_photos):
+                for photo in list(captured_from_camera):
                     if alarm_state['current_state'] != 'armed':
                         break
                     logger.debug('Processing the photo: %s' % photo)
                     alarm_state['alarm_triggered'] = True
-                    if telegram_send_photo(photo):
+                    if telegram_send_file(photo):
                         archive_photo(photo)
-                        captured_photos.remove(photo)
+                        captured_from_camera.remove(photo)
             else:
                 logger.debug('Stopping photo processing as state is now %s' % alarm_state['current_state'])
-                for photo in list(captured_photos):
+                for photo in list(captured_from_camera):
                     logger.info('Removing photo as it is a false positive: %s' % photo)
-                    captured_photos.remove(photo)
+                    captured_from_camera.remove(photo)
                     # Delete the photo file
         time.sleep(5)
 
@@ -281,6 +321,8 @@ def telegram_bot(token):
             state['telegram_chat_id'] = update.message.chat_id
             write_state_file(state_file=args.state_file, state_data=state)
             logger.debug('Set Telegram chat_id %s' % update.message.chat_id)
+    def debug(bot, update):
+        logger.debug('Received Telegram bot message: %s' % update.message.text)
     def check_chat_id(update):
         if update.message.chat_id != state['telegram_chat_id']:
             logger.debug('Ignoring Telegam update with filtered chat id %s: %s' % (update.message.chat_id, update.message.text))
@@ -289,7 +331,7 @@ def telegram_bot(token):
             return True
     def help(bot, update):
         if check_chat_id(update):
-            bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text='/status: Request status\n/disable: Disable alarm\n/enable: Enable alarm\n/photo: Take a photo\n', timeout=10)
+            bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text='/status: Request status\n/disable: Disable alarm\n/enable: Enable alarm\n/photo: Take a photo\n/gif: Take a gif\n', timeout=10)
     def status(bot, update):
         if check_chat_id(update):
             bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text=prepare_status(alarm_state), timeout=10)
@@ -301,18 +343,26 @@ def telegram_bot(token):
             update_alarm_state('disarmed')
     def photo(bot, update):
         if check_chat_id(update):
-            take_photo('/var/tmp/rpi-sec-photo-tmp.jpeg')
-            bot.sendPhoto(update.message.chat_id, photo=open('/var/tmp/rpi-sec-photo-tmp.jpeg', 'rb'), timeout=30)
+            file_path = config['camera_save_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + '.jpeg'
+            take_photo(file_path)
+            telegram_send_file(file_path)
+    def gif(bot, update):
+        if check_chat_id(update):
+            file_path = config['camera_save_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + '.gif'
+            take_gif(file_path, config['camera_capture_length'])
+            telegram_send_file(file_path)
     def error(bot, update, error):
         logger.error('Update "%s" caused error "%s"' % (update, error))
     updater = Updater(token)
     dp = updater.dispatcher
     dp.add_handler(RegexHandler('.*', save_chat_id), group=1)
+    dp.add_handler(RegexHandler('.*', debug), group=2)
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("status", status))
     dp.add_handler(CommandHandler("disable", disable))
     dp.add_handler(CommandHandler("enable", enable))
     dp.add_handler(CommandHandler("photo", photo))
+    dp.add_handler(CommandHandler("gif", gif))
     dp.add_error_handler(error)
     logger.info("thread running")
     updater.start_polling(timeout=10)
@@ -324,11 +374,18 @@ def motion_detected(channel):
     current_state = alarm_state['current_state']
     if current_state == 'armed':
         logger.info('Motion detected')
-        file_prefix = config['image_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        for i in range(0, 5, 1):
-            camera_output_file = "%s-%s.jpeg" % (file_prefix, i)
-            take_photo(camera_output_file)
-            captured_photos.append(camera_output_file)
+        file_prefix = config['camera_save_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        if config['camera_mode'].lower() == 'gif':
+            camera_output_file = "%s.gif" % file_prefix
+            take_gif(camera_output_file, config['camera_capture_length'])
+            captured_from_camera.append(camera_output_file)
+        elif config['camera_mode'].lower() == 'photo':
+            for i in range(0, config['camera_capture_length'], 1):
+                camera_output_file = "%s-%s.jpeg" % (file_prefix, i)
+                take_photo(camera_output_file)
+                captured_from_camera.append(camera_output_file)
+        else:
+            logger.error("Unkown camera_mode %s" % config['camera_mode'])
     else:
         logger.debug('Motion detected but current_state is: %s' % current_state)
 
@@ -386,7 +443,7 @@ if __name__ == "__main__":
     logger = setup_logging(debug_mode=config['debug_mode'], log_to_stdout=args.debug)
     state = read_state_file(args.state_file)
     sys.excepthook = exception_handler
-    captured_photos = []
+    captured_from_camera = []
     # Some intial checks before proceeding
     if check_monitor_mode(config['network_interface']):
         config['network_interface_mac'] = get_interface_mac_addr(config['network_interface'])
@@ -406,12 +463,13 @@ if __name__ == "__main__":
     import telegram
     from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, RegexHandler
     from threading import Thread, current_thread
+    from PIL import Image
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(32, GPIO.OUT, initial=False)
     try:
         camera = picamera.PiCamera()
-        camera.resolution = (2592, 1944)
-        camera.vflip = True
+        camera.resolution = config['camera_image_size']
+        camera.vflip = config['camera_vflip']
         camera.led = False
     except Exception as e:
         exit_error('Camera module failed to intialise with error %s' % e)

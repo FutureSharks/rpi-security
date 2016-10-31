@@ -6,9 +6,11 @@ Raspberry Pi camera mount 3D printed from [Shapeways](https://www.shapeways.com/
 
 DWG CAD files are in hardware/cad-files or you can see models here on Spaceways:
 
-http://www.shapeways.com/product/DHDHT729C/raspberry-pi-pir-sensor-makerbeam-mount
+https://www.shapeways.com/product/K6FLBY3SW/raspberry-pi-camera-module-makerbeam-mount
 
-http://www.shapeways.com/product/UXSACKN2X/raspberry-pi-camera-makerbeam-mount
+https://www.shapeways.com/product/F4268ZMG5/raspberry-pi-pir-sensor-makerbeam-mount
+
+The camera mount supports both the V1 and V2 camera modules.
 
 ## Photos
 

@@ -83,6 +83,7 @@ def parse_config_file(config_file):
     dict_config['pir_pin'] = int(dict_config['pir_pin'])
     dict_config['camera_image_size'] = tuple([int(x) for x in dict_config['camera_image_size'].split('x')])
     dict_config['camera_capture_length'] = int(dict_config['camera_capture_length'])
+    dict_config['camera_mode'] = dict_config['camera_mode'].lower()
     dict_config['packet_timeout'] = int(dict_config['packet_timeout'])
     if ',' in dict_config['mac_addresses']:
         dict_config['mac_addresses'] = dict_config['mac_addresses'].lower().split(',')
@@ -130,8 +131,8 @@ def take_photo(output_file):
         logger.info("Captured image: %s" % output_file)
         return True
 
-def take_gif(output_file, length):
-    temp_jpeg_path = config['camera_save_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + 'gif-part'
+def take_gif(output_file, length, temp_directory):
+    temp_jpeg_path = temp_directory + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + 'gif-part'
     jpeg_files = ['%s-%s.jpg' % (temp_jpeg_path, i) for i in range(length*3)]
     try:
         for jpeg in jpeg_files:
@@ -190,7 +191,7 @@ def telegram_send_file(file_path):
         logger.info('Telegram file sent: %s' % file_path)
         return True
 
-def arp_ping_macs(mac_addresses, repeat=1):
+def arp_ping_macs(mac_addresses, address, repeat=1):
     """
     Performs an ARP scan of a destination MAC address to try and determine if they are present on the network.
     """
@@ -209,7 +210,7 @@ def arp_ping_macs(mac_addresses, repeat=1):
         if time.time() - alarm_state['last_packet'] < 30:
             break
         for mac_address in mac_addresses:
-            result = _arp_ping(mac_address, config['network_address'])
+            result = _arp_ping(mac_address, address)
             if result:
                 logger.debug('MAC %s responded to ARP ping with address %s' % (mac_address, result))
                 break
@@ -219,7 +220,7 @@ def arp_ping_macs(mac_addresses, repeat=1):
             time.sleep(2)
         repeat -= 1
 
-def process_photos():
+def process_photos(network_address, mac_addresses):
     """
     Monitors the captured_from_camera list for newly captured photos.
     When a new photos are present it will run arp_ping_macs to remove false positives and then send the photos via Telegram.
@@ -229,7 +230,7 @@ def process_photos():
     while True:
         if len(captured_from_camera) > 0:
             if alarm_state['current_state'] == 'armed':
-                arp_ping_macs(mac_addresses=config['mac_addresses'], repeat=3)
+                arp_ping_macs(mac_addresses, network_address, repeat=3)
                 for photo in list(captured_from_camera):
                     if alarm_state['current_state'] != 'armed':
                         break
@@ -277,7 +278,7 @@ def update_alarm_state(new_alarm_state):
         logger.info("rpi-security is now %s" % alarm_state['current_state'])
         telegram_send_message('rpi-security: *%s*' % alarm_state['current_state'])
 
-def monitor_alarm_state():
+def monitor_alarm_state(packet_timeout, network_address, mac_addresses):
     """
     This function monitors and updates the alarm state based on data from Telegram and the alarm_state dictionary.
     """
@@ -286,14 +287,14 @@ def monitor_alarm_state():
         time.sleep(3)
         now = time.time()
         if alarm_state['current_state'] != 'disabled':
-            if now - alarm_state['last_packet'] > config['packet_timeout'] + 20:
+            if now - alarm_state['last_packet'] > packet_timeout + 20:
                 update_alarm_state('armed')
-            elif now - alarm_state['last_packet'] > config['packet_timeout']:
-                arp_ping_macs(config['mac_addresses'])
+            elif now - alarm_state['last_packet'] > packet_timeout:
+                arp_ping_macs(mac_addresses, network_address)
             else:
                 update_alarm_state('disarmed')
 
-def telegram_bot(token):
+def telegram_bot(token, camera_save_path, camera_capture_length, camera_mode):
     """
     This function runs the telegram bot that responds to commands like /enable, /disable or /status.
     """
@@ -343,13 +344,13 @@ def telegram_bot(token):
             update_alarm_state('disarmed')
     def photo(bot, update):
         if check_chat_id(update):
-            file_path = config['camera_save_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + '.jpeg'
+            file_path = camera_save_path + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + '.jpeg'
             take_photo(file_path)
             telegram_send_file(file_path)
     def gif(bot, update):
         if check_chat_id(update):
-            file_path = config['camera_save_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + '.gif'
-            take_gif(file_path, config['camera_capture_length'])
+            file_path = camera_save_path + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + '.gif'
+            take_gif(file_path, camera_capture_length, camera_save_path)
             telegram_send_file(file_path)
     def error(bot, update, error):
         logger.error('Update "%s" caused error "%s"' % (update, error))
@@ -375,11 +376,11 @@ def motion_detected(channel):
     if current_state == 'armed':
         logger.info('Motion detected')
         file_prefix = config['camera_save_path'] + "/rpi-security-" + datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        if config['camera_mode'].lower() == 'gif':
+        if config['camera_mode'] == 'gif':
             camera_output_file = "%s.gif" % file_prefix
-            take_gif(camera_output_file, config['camera_capture_length'])
+            take_gif(camera_output_file, config['camera_capture_length'], config['camera_save_path'])
             captured_from_camera.append(camera_output_file)
-        elif config['camera_mode'].lower() == 'photo':
+        elif config['camera_mode'] == 'photo':
             for i in range(0, config['camera_capture_length'], 1):
                 camera_output_file = "%s-%s.jpeg" % (file_prefix, i)
                 take_photo(camera_output_file)
@@ -488,16 +489,16 @@ if __name__ == "__main__":
         'alarm_triggered': False
     }
     # Start the threads
-    telegram_bot_thread = Thread(name='telegram_bot', target=telegram_bot, kwargs={'token': config['telegram_bot_token']})
+    telegram_bot_thread = Thread(name='telegram_bot', target=telegram_bot, kwargs={'token': config['telegram_bot_token'], 'camera_save_path': config['camera_save_path'], 'camera_capture_length': config['camera_capture_length'], 'camera_mode': config['camera_mode'],})
     telegram_bot_thread.daemon = True
     telegram_bot_thread.start()
-    monitor_alarm_state_thread = Thread(name='monitor_alarm_state', target=monitor_alarm_state)
+    monitor_alarm_state_thread = Thread(name='monitor_alarm_state', target=monitor_alarm_state, kwargs={'packet_timeout': config['packet_timeout'], 'network_address': config['network_address'], 'mac_addresses': config['mac_addresses']})
     monitor_alarm_state_thread.daemon = True
     monitor_alarm_state_thread.start()
     capture_packets_thread = Thread(name='capture_packets', target=capture_packets, kwargs={'network_interface': config['network_interface'], 'network_interface_mac': config['network_interface_mac'], 'mac_addresses': config['mac_addresses']})
     capture_packets_thread.daemon = True
     capture_packets_thread.start()
-    process_photos_thread = Thread(name='process_photos', target=process_photos)
+    process_photos_thread = Thread(name='process_photos', target=process_photos, kwargs={'network_address': config['network_address'], 'mac_addresses': config['mac_addresses']})
     process_photos_thread.daemon = True
     process_photos_thread.start()
     signal.signal(signal.SIGTERM, exit_clean)

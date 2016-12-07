@@ -91,7 +91,7 @@ First install required packages:
 
 ```
 sudo apt-get update
-sudo apt-get install tcpdump iw python-dev python-pip
+sudo apt-get install tcpdump iw python-dev python-pip libjpeg8-dev zlib1g-dev
 ```
 
 Update pip:

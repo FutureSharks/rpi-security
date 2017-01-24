@@ -471,6 +471,7 @@ if __name__ == "__main__":
         camera = picamera.PiCamera()
         camera.resolution = config['camera_image_size']
         camera.vflip = config['camera_vflip']
+        camera.hflip = config['camera_hflip']
         camera.led = False
     except Exception as e:
         exit_error('Camera module failed to intialise with error %s' % e)

@@ -87,6 +87,8 @@ The application uses multithreading in order to process events asynchronously. T
 
 The interface used to connect to your WiFi network must be the same interface that supports monitor mode. And this must be the same WiFi network that the mobile phones connect to.
 
+Be sure to connect your PIR sensor to the correct pin. The pin is specified in ``/etc/rpi-security.conf`` using the BCM pin number. This is not the same number as the pin name on the PCB. See [here](http://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins/#prettyPhoto) or [here](http://pinout.xyz/) for the mapping.
+
 First install required packages:
 
 ```

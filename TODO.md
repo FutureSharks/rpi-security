@@ -17,3 +17,5 @@ Auto adjust camera settings if too dark, white balance etc
 Use motion detection from camera
 
 Support multiple chat IDs or group chat so that multiple people can control it.
+
+Remove static reference to wlan0

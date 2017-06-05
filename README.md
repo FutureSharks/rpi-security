@@ -3,10 +3,10 @@
 A simple security system to run on a [Raspberry Pi](https://www.raspberrypi.org/).
 
 Features:
-  - Motion triggered image capture.
+  - Motion detection and photo capture using the camera.
   - Mobile notifications with photos.
   - Detects when you are home and arms or disarms automatically.
-  - Can be remotely disabled or queried for status using [Telegram](https://telegram.org/).
+  - Can be remotely disabled or queried using [Telegram](https://telegram.org/).
 
 Similar to these products:
 
@@ -23,14 +23,13 @@ Similar to these products:
 You will need this hardware:
   - Raspberry Pi with camera interface. I use a model A+.
   - Raspberry Pi camera module.
-  - PIR sensor module. Any generic HC SR501 (or similar) module should work. Example [from Adafruit](https://www.adafruit.com/products/189).
   - USB Wi-Fi that supports monitor mode. I used a RT5370 based adapter, they are cheap at about €6 and easy to find.
   - An enclosure of some sort. Details of the hardware I made is [here](hardware).
 
 Other requirements:
   - A [Telegram bot](https://telegram.org/blog/bot-revolution). It's free and easy to setup.
   - Raspbian distribution installed. I used Jessie lite. You could possibly use a different OS but I haven't tried it.
-  - Python 2.7.
+  - Python 3.
 
 ## How it works
 
@@ -72,14 +71,14 @@ You can send the Telegram bot commands that trigger certain actions.
 
 ### Python
 
-I wrote the whole application in python. Large parts of the functionality are provided by the following pip modules:
+The application is written in python 3. Large parts of the functionality are provided by the following pip modules:
   - [picamera](https://github.com/waveform80/picamera)
   - [Scapy](http://www.secdev.org/projects/scapy/)
   - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
 
 The application uses multithreading in order to process events asynchronously. There are 4 threads:
   - telegram_bot: Responds to commands.
-  - monitor_alarm_state: Arms and disarms the service when packets are detected.
+  - monitor_alarm_state: Arms and disarms the system.
   - capture_packets: Captures packets from the mobile devices.
   - process_photos: Sends captured images via Telegram messages.
 
@@ -87,32 +86,18 @@ The application uses multithreading in order to process events asynchronously. T
 
 The interface used to connect to your WiFi network must be the same interface that supports monitor mode. And this must be the same WiFi network that the mobile phones connect to.
 
-Be sure to connect your PIR sensor to the correct pin. The pin is specified in ``/etc/rpi-security.conf`` using the BCM pin number. This is not the same number as the pin name on the PCB. See [here](http://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins/#prettyPhoto) or [here](http://pinout.xyz/) for the mapping.
-
 First install required packages:
 
 ```
 sudo apt-get update
-sudo apt-get install tcpdump iw python-dev python-pip libjpeg8-dev zlib1g-dev
-```
-
-Update pip:
-
-```
-pip install --upgrade pip
-```
-
-Install current master of scapy as the current release is missing a required bug fix:
-
-```
-sudo pip install https://github.com/secdev/scapy/zipball/master
-sudo pip --no-cache-dir install 'Pillow>=3.4.0'
+sudo apt-get install -y tcpdump iw python3-dev python3-pip libjpeg8-dev zlib1g-dev libffi-dev python3-numpy
+sudo pip3 install --upgrade pip
 ```
 
 Install rpi-security, reload systemd configuration and enable the service:
 
 ```
-sudo pip install https://github.com/FutureSharks/rpi-security/zipball/master
+sudo pip3 install https://github.com/FutureSharks/rpi-security/archive/master.zip
 sudo systemctl daemon-reload
 sudo systemctl enable rpi-security.service
 ```
@@ -171,6 +156,12 @@ phy#0
 ```
 
 You could have interfaces with different names, just be sure to change the ``network_interface`` parameter in ``/etc/rpi-security.conf`` and also the reference to mon0 in [rpi-security.service](https://github.com/FutureSharks/rpi-security/blob/master/etc/rpi-security.service)
+
+### Older version with PIR sensor motion detection
+
+Currently the camera is used for motion detection. If you want to use the old version with support for a PIR sensor then look at version 0.7:
+
+https://github.com/FutureSharks/rpi-security/releases/tag/0.7
 
 ### Reboot on connectivity loss
 

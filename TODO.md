@@ -1,21 +1,13 @@
-# rpi-sec to do list
-
-Add more debug for bot stuff
-
-Add a udev rule for monitor interface instead of having it in the systemd service file?
-
-Implement some form of visual indicator to show the alarm state.
+# To do
 
 Automatically delete old photos
 
 Implement an archive feature. Eg copy to S3 or FTP.
 
-Actually learn python and use methods instead of just a bunch of functions.
-
-Auto adjust camera settings if too dark, white balance etc
-
-Use motion detection from camera
-
 Support multiple chat IDs or group chat so that multiple people can control it.
 
-Remove static reference to wlan0
+Hard coded `mon0` interface name in `etc/rpi-security.service`
+
+Fine tune `motion_detection_setting` to stop false triggers
+
+Update images without PIR sensor

@@ -19,6 +19,7 @@ def process_photos(rpis, camera):
             if rpis.state.current == 'armed':
                 logger.debug('Running arp_ping_macs before sending photos...')
                 rpis.arp_ping_macs()
+                time.sleep(2)
                 while True:
                     if rpis.state.current != 'armed':
                         camera.clear_queue()

@@ -69,7 +69,7 @@ class RpisSecurity(object):
             logger.debug('Data file read: {0}'.format(self.data_file))
         return result
 
-    def arp_ping_macs(self, repeat=3):
+    def arp_ping_macs(self, repeat=4):
         """
         Performs an ARP scan of a destination MAC address to try and determine if they are present on the network.
         """

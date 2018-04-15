@@ -28,7 +28,7 @@ You will need this hardware:
 
 Other requirements:
   - A [Telegram bot](https://telegram.org/blog/bot-revolution). It's free and easy to setup.
-  - Raspbian distribution installed. I used Jessie lite. You could possibly use a different OS but I haven't tried it.
+  - Raspbian distribution installed. I used 9 (stretch). You could possibly use a different OS but I haven't tried it.
   - Python 3.
 
 ## How it works
@@ -73,7 +73,7 @@ You can send the Telegram bot commands that trigger certain actions.
 
 The application is written in python 3. Large parts of the functionality are provided by the following pip modules:
   - [picamera](https://github.com/waveform80/picamera)
-  - [Scapy](http://www.secdev.org/projects/scapy/)
+  - [scapy](http://www.secdev.org/projects/scapy/)
   - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
 
 The application uses multithreading in order to process events asynchronously. There are 4 threads:
@@ -90,14 +90,14 @@ First install required packages:
 
 ```
 sudo apt-get update
-sudo apt-get install -y tcpdump iw python3-dev python3-pip libjpeg8-dev zlib1g-dev libffi-dev python3-numpy
+sudo apt-get install -y tcpdump iw python3-dev python3-pip libjpeg8-dev zlib1g-dev libffi-dev python3-numpy libopenjp2-7-dev libtiff5
 sudo pip3 install --upgrade pip
 ```
 
 Install rpi-security, reload systemd configuration and enable the service:
 
 ```
-sudo pip3 install https://github.com/FutureSharks/rpi-security/archive/master.zip
+sudo pip3 install --no-binary :all: https://github.com/FutureSharks/rpi-security/archive/master.zip
 sudo systemctl daemon-reload
 sudo systemctl enable rpi-security.service
 ```

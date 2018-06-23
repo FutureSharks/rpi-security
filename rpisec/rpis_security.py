@@ -102,9 +102,13 @@ class RpisSecurity(object):
         """
         try:
             # Use a lock here?
-            self.saved_data['telegram_chat_id'] = chat_id
+            if self.saved_data['telegram_chat_ids']:
+                self.saved_data['telegram_chat_ids'].append(chat_id)
+            else:
+                self.saved_data['telegram_chat_ids'] = [chat_id]
+
             with open(self.data_file, 'w') as f:
-                yaml.dump({'telegram_chat_id': chat_id}, f, default_flow_style=False)
+                yaml.dump({'telegram_chat_ids': self.saved_data['telegram_chat_ids']}, f, default_flow_style=False)
         except Exception as e:
             logger.error('Failed to write state file {0}: {1}'.format(self.data_file, e))
         else:
@@ -132,6 +136,7 @@ class RpisSecurity(object):
         self.camera_mode = self.camera_mode.lower()
         self.packet_timeout = int(self.packet_timeout)
         self.mac_addresses = self.mac_addresses.lower().split(',')
+        self.telegram_users_number = int(self.telegram_users_number)
 
     def _check_system(self):
         if not os.geteuid() == 0:
@@ -194,11 +199,13 @@ class RpisSecurity(object):
             raise Exception('Unable to get network address for interface {0}'.format(self.network_interface))
 
     def telegram_send_message(self, message):
-        if 'telegram_chat_id' not in self.saved_data or self.saved_data['telegram_chat_id'] is None:
+        if 'telegram_chat_ids' not in self.saved_data or self.saved_data['telegram_chat_ids'] is None:
             logger.error('Telegram failed to send message because Telegram chat_id is not set. Send a message to the Telegram bot')
             return False
         try:
-            self.bot.sendMessage(chat_id=self.saved_data['telegram_chat_id'], parse_mode='Markdown', text=message, timeout=10)
+            for chat_id in self.saved_data['telegram_chat_ids']:
+                self.bot.sendMessage(chat_id=chat_id, parse_mode='Markdown', text=message, timeout=10)
+
         except Exception as e:
             logger.error('Telegram message failed to send message "{0}" with exception: {1}'.format(message, e))
         else:
@@ -206,17 +213,20 @@ class RpisSecurity(object):
             return True
 
     def telegram_send_file(self, file_path):
-        if 'telegram_chat_id' not in self.saved_data:
+        if 'telegram_chat_ids' not in self.saved_data:
             logger.error('Telegram failed to send file {0} because Telegram chat_id is not set. Send a message to the Telegram bot'.format(file_path))
             return False
         filename, file_extension = os.path.splitext(file_path)
         try:
             if file_extension == '.mp4':
-                self.bot.sendVideo(chat_id=self.saved_data['telegram_chat_id'], video=open(file_path, 'rb'), timeout=30)
+                for chat_id in self.saved_data['telegram_chat_ids']:
+                    self.bot.sendVideo(chat_id=chat_id, video=open(file_path, 'rb'), timeout=30)
             elif file_extension == '.gif':
-                self.bot.sendDocument(chat_id=self.saved_data['telegram_chat_id'], document=open(file_path, 'rb'), timeout=30)
+                for chat_id in self.saved_data['telegram_chat_ids']:
+                    self.bot.sendDocument(chat_id=chat_id, document=open(file_path, 'rb'), timeout=30)
             elif file_extension == '.jpeg':
-                self.bot.sendPhoto(chat_id=self.saved_data['telegram_chat_id'], photo=open(file_path, 'rb'), timeout=10)
+                for chat_id in self.saved_data['telegram_chat_ids']:
+                    self.bot.sendPhoto(chat_id=chat_id, photo=open(file_path, 'rb'), timeout=10)
             else:
                 logger.error('Uknown file not sent: {0}'.format(file_path))
         except Exception as e:

@@ -16,15 +16,19 @@ def telegram_bot(rpis, camera):
     This function runs the telegram bot that responds to commands like /enable, /disable or /status.
     """
     def save_chat_id(bot, update):
-        if 'telegram_chat_id' not in rpis.saved_data or rpis.saved_data['telegram_chat_id'] is None:
+        if 'telegram_chat_ids' not in rpis.saved_data or rpis.saved_data['telegram_chat_ids'] is None:
             rpis.save_telegram_chat_id(update.message.chat_id)
             logger.debug('Set Telegram chat_id {0}'.format(update.message.chat_id))
+        else:
+            if len(rpis.saved_data['telegram_chat_ids']) < rpis.telegram_users_number:
+                rpis.save_telegram_chat_id(update.message.chat_id)
+                logger.debug('Set Telegram chat_id {0}'.format(update.message.chat_id))
 
     def debug(bot, update):
         logger.debug('Received Telegram bot message: {0}'.format(update.message.text))
 
     def check_chat_id(update):
-        if 'telegram_chat_id' in rpis.saved_data and update.message.chat_id != rpis.saved_data['telegram_chat_id']:
+        if 'telegram_chat_ids' in rpis.saved_data and update.message.chat_id not in rpis.saved_data['telegram_chat_ids']:
             logger.debug('Ignoring Telegam update with filtered chat id {0}: {1}'.format(update.message.chat_id, update.message.text))
             return False
         else:

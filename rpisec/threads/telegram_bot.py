@@ -21,8 +21,9 @@ def telegram_bot(rpis, camera):
             logger.debug('Set Telegram chat_id {0}'.format(update.message.chat_id))
         else:
             if len(rpis.saved_data['telegram_chat_ids']) < rpis.telegram_users_number:
-                rpis.save_telegram_chat_id(update.message.chat_id)
-                logger.debug('Set Telegram chat_id {0}'.format(update.message.chat_id))
+                if update.message.chat_id not in rpis.saved_data['telegram_chat_ids']:
+                    rpis.save_telegram_chat_id(update.message.chat_id)
+                    logger.debug('Set Telegram chat_id {0}'.format(update.message.chat_id))
 
     def debug(bot, update):
         logger.debug('Received Telegram bot message: {0}'.format(update.message.text))

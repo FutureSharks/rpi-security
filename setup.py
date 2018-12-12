@@ -23,6 +23,8 @@ setup(
         'python-telegram-bot',
         'picamera',
         'RPi.GPIO',
+        'opencv-python',
+        'imutils',
         'numpy',
         'configparser',
         'requests',

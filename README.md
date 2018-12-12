@@ -82,6 +82,15 @@ The application uses multithreading in order to process events asynchronously. T
   - capture_packets: Captures packets from the mobile devices.
   - process_photos: Sends captured images via Telegram messages.
 
+### Motion detection
+Previously, the motion detection was made by the default RpiMotionDetector from RpiCamera which could cause many false positive.
+In the newer version, the motion detection is done thanks to OpenCV and Image algorithm, reducing the number of false positive.
+Each motion detection will save 4 pictures in /tmp:
+ - frame.jpg: The picture with rectangles surrounding the motion
+ - gray.jpg: The picture with grayscale and blur (which will be use to detect motion between the current frame and the previous one)
+ - abs_diff.jpg: The absolute difference between they grays frames (current and previous)
+ - thresh.jpg: A threshold has been applied to be sure the motion is important enough to be detected.
+
 ## Installation, configuration and Running
 
 The interface used to connect to your WiFi network must be the same interface that supports monitor mode. And this must be the same WiFi network that the mobile phones connect to.
@@ -90,7 +99,7 @@ First install required packages:
 
 ```
 sudo apt-get update
-sudo apt-get install -y tcpdump iw python3-dev python3-pip libjpeg8-dev zlib1g-dev libffi-dev python3-numpy libopenjp2-7-dev libtiff5
+sudo apt-get install -y tcpdump iw python3-dev python3-pip libjpeg8-dev zlib1g-dev libffi-dev python3-numpy libopenjp2-7-dev libtiff5 install libatlas-base-dev libjasper-dev libqtgui4 python3-pyqt5 libqt4-test
 sudo pip3 install --upgrade pip
 ```
 

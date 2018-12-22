@@ -6,12 +6,12 @@ import time
 import yaml
 import logging
 
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+logging.getLogger("kamene.runtime").setLevel(logging.ERROR)
 
 from configparser import SafeConfigParser
 from netaddr import IPNetwork
 from netifaces import ifaddresses
-from scapy.all import srp, Ether, ARP
+from kamene.all import srp, Ether, ARP
 from telegram import Bot as TelegramBot
 from .exit_clean import exit_error
 from .rpis_state import RpisState
@@ -35,9 +35,9 @@ class RpisSecurity(object):
         'photo_size': '1024x768',
         'gif_size': '1024x768',
         'motion_size': '1024x768',
-        'motion_detection_setting': '60x10',
         'camera_mode': 'gif',
-        'camera_capture_length': '3'
+        'camera_capture_length': '3',
+        'telegram_users_number': '1'
     }
 
     def __init__(self, config_file, data_file):
@@ -131,7 +131,6 @@ class RpisSecurity(object):
         self.photo_size = tuple([int(x) for x in self.photo_size.split('x')])
         self.gif_size = tuple([int(x) for x in self.gif_size.split('x')])
         self.motion_size = tuple([int(x) for x in self.motion_size.split('x')])
-        self.motion_detection_setting = tuple([int(x) for x in self.motion_detection_setting.split('x')])
         self.camera_capture_length = int(self.camera_capture_length)
         self.camera_mode = self.camera_mode.lower()
         self.packet_timeout = int(self.packet_timeout)

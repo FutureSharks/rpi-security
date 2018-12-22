@@ -48,8 +48,8 @@ if __name__ == "__main__":
     try:
         rpis = rpisec.RpisSecurity(args.config_file, args.data_file)
         camera = rpisec.RpisCamera(rpis.photo_size, rpis.gif_size, rpis.motion_size,
-            rpis.camera_vflip, rpis.camera_hflip, rpis.motion_detection_setting,
-            rpis.camera_capture_length, rpis.camera_mode)
+            rpis.camera_vflip, rpis.camera_hflip, rpis.camera_capture_length,
+            rpis.camera_mode)
         if rpis.debug_mode:
             logger.handlers[0].setLevel(logging.DEBUG)
     except Exception as e:

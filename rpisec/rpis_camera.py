@@ -26,7 +26,7 @@ class RpisCamera(object):
     captues photos and GIFs.
     '''
     def __init__(self, photo_size, gif_size, motion_size, camera_vflip,
-            camera_hflip, motion_detection_setting, camera_capture_length,
+            camera_hflip, camera_capture_length,
             camera_mode):
         self.photo_size = photo_size
         self.gif_size = gif_size
@@ -34,8 +34,6 @@ class RpisCamera(object):
         self.camera_hflip = camera_hflip
         self.lock = Lock()
         self.queue = Queue()
-        self.motion_magnitude = motion_detection_setting[0]
-        self.motion_vectors = motion_detection_setting[1]
         self.motion_framerate = 5
         self.motion_size = motion_size
         self.temp_directory = '/var/tmp'
@@ -47,7 +45,6 @@ class RpisCamera(object):
             self.camera = PiCamera()
             self.camera.vflip = self.camera_vflip
             self.camera.hflip = self.camera_hflip
-            self.camera.led = False
         except Exception as e:
             exit_error('Camera module failed to intialise with error {0}'.format(repr(e)))
 

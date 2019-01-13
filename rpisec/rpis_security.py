@@ -29,7 +29,6 @@ class RpisSecurity(object):
         'network_interface': 'mon0',
         'packet_timeout': '700',
         'debug_mode': 'False',
-        'pir_pin': '14',
         'camera_vflip': 'False',
         'camera_hflip': 'False',
         'photo_size': '1024x768',
@@ -131,7 +130,6 @@ class RpisSecurity(object):
         self.debug_mode = _str2bool(self.debug_mode)
         self.camera_vflip = _str2bool(self.camera_vflip)
         self.camera_hflip = _str2bool(self.camera_hflip)
-        self.pir_pin = int(self.pir_pin)
         self.photo_size = tuple([int(x) for x in self.photo_size.split('x')])
         self.gif_size = tuple([int(x) for x in self.gif_size.split('x')])
         self.motion_size = tuple([int(x) for x in self.motion_size.split('x')])

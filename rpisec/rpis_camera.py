@@ -3,6 +3,10 @@
 import logging
 import os
 import time
+import io
+import imutils
+import time
+import cv2
 from picamera.array import PiMotionAnalysis
 from picamera import PiCamera
 import numpy as np
@@ -12,10 +16,6 @@ from queue import Queue
 from .exit_clean import exit_error
 from datetime import datetime
 
-# from imutils.video import VideoStream
-import imutils
-import time
-import cv2
 
 logger = logging.getLogger()
 
@@ -123,15 +123,13 @@ class RpisCamera(object):
     def start_motion_detection(self, rpis):
         min_area = 500
         past_frame = None
-        logger.debug("Started motion detection from video stream from RpiCamera")
-        # loop over the frames of the video
-        picture_path = '/tmp/rpi-security-current.jpg'
+        logger.debug("Starting motion detection")
         while not self.lock.locked() and rpis.state.current == 'armed':
+            stream = io.BytesIO()
             self.camera.resolution = self.motion_size
-            self.camera.capture(picture_path, use_video_port=False)
-            time.sleep(0.3)
-            # grab the current frame
-            frame = cv2.imread(picture_path)
+            self.camera.capture(stream, format='jpeg', use_video_port=False)
+            data = np.fromstring(stream.getvalue(), dtype=np.uint8)
+            frame = cv2.imdecode(data, 1)
 
             # if frame is initialized, we have not reach the end of the video
             if frame is not None:
@@ -139,6 +137,7 @@ class RpisCamera(object):
             else:
                 logger.error("No more frame")
             rpis.state.check()
+            time.sleep(0.3)
         else:
             self.stop_motion_detection()
 
@@ -179,7 +178,8 @@ class RpisCamera(object):
             if cv2.contourArea(c) < min_area:
                 continue
 
-            logger.debug("Motion detected !") # Motion detected because there is a contour that is larger than the specified min_area
+            logger.debug("Motion detected!")
+            # Motion detected because there is a contour that is larger than the specified min_area
             # compute the bounding box for the contour, draw it on the frame,
             (x, y, w, h) = cv2.boundingRect(c)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -188,22 +188,12 @@ class RpisCamera(object):
         return None
 
     def handle_motion_detected(self, frame, gray, frame_detla, thresh):
-        frame_path = self.print_image("frame", frame)
-        self.queue.put(frame_path)
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        bounding_box_path = '{0}/rpi-security-{1}-box.jpeg'.format(self.camera_save_path, timestamp)
+        cv2.imwrite(bounding_box_path, frame)
+        self.queue.put(bounding_box_path)
         self.trigger_camera()
-
-        # In case of motion detection, the pictures will be saved in /tmp folder to get the files somewhere else than Telegram
-        # Note that gray, abs_diff and thresh can be used to debug in case of false alarm
-        self.print_image("gray", gray)
-        self.print_image("abs_diff", frame_detla)
-        self.print_image("thresh", thresh)
         return
-
-    # Usefull function for saving images in /tmp folder.
-    def print_image(self, name, image):
-        path = '/tmp/' + name + '_' + datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3] + ".jpeg"
-        cv2.imwrite(path, image)
-        return path
 
     def stop_motion_detection(self):
         try:

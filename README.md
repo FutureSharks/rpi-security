@@ -9,10 +9,9 @@ Features:
   - Detects when you are home and arms or disarms automatically.
   - Can be remotely disabled or queried using [Telegram](https://telegram.org/).
 
-![rpi-security 1](../master/images/rpi-security-1.jpg?raw=true)
+<a href="#"><img src="https://raw.githubusercontent.com/FutureSharks/rpi-security/master/images/rpi-security-1.jpg" width="600"></a>
 
-![rpi-security 2](../master/images/rpi-security-2.jpg?raw=true)
-
+<a href="#"><img src="https://raw.githubusercontent.com/FutureSharks/rpi-security/master/images/rpi-security-2.jpg" width="600"></a>
 
 ## Requirements
 
@@ -59,7 +58,7 @@ Motion detection is done using [OpenCV](https://opencv.org/). Each motion detect
 
 A [Telegram](https://core.telegram.org/bots) bot is used to send notifications with the captured images. They have good mobile applications and a nice API. You can also view the messages in a browser and messages are synced across devices. If the system is in an armed state and motion is detected then a message with the captured image is sent to you from the Telegram bot. Notifications are also sent on any alarm state change.
 
-![rpi-security 2](../master/images/rpi-security-notification.png?raw=true)
+<a href="#"><img src="https://raw.githubusercontent.com/FutureSharks/rpi-security/master/images/rpi-security-notification.png" width="600"></a>
 
 #### Remote control
 

@@ -16,7 +16,7 @@ setup(
     scripts = ['bin/rpi-security.py'],
     data_files = [
         ('/lib/systemd/system', ['etc/rpi-security.service']),
-        ('/etc', ['etc/rpi-security.conf']),
+        ('/etc', ['etc/rpi-security.conf', 'etc/rpi-security-environment']),
         ('/var/lib/rpi-security', ['etc/data.yaml'])
     ],
     install_requires = [

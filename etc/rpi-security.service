@@ -4,7 +4,8 @@ After=multi-user.target
 
 [Service]
 Type=idle
-StandardOutput=null
+StandardOutput=syslog
+StandardError=syslog
 TimeoutStartSec=15
 EnvironmentFile=/etc/rpi-security-environment
 ExecStartPre=/sbin/iw dev ${RPI_SEC_WLAN_ITFC} interface add ${RPI_SEC_MON} type monitor

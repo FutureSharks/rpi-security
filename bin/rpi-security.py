@@ -21,7 +21,7 @@ def setup_logging(debug_mode, log_to_stdout):
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     syslog_handler = logging.handlers.SysLogHandler(address = '/dev/log')
-    syslog_format = logging.Formatter("%(filename)s:%(threadName)s %(message)s", "%Y-%m-%d %H:%M:%S")
+    syslog_format = logging.Formatter("rpi-security %(threadName)s %(message)s", "%Y-%m-%d %H:%M:%S")
     syslog_handler.setFormatter(syslog_format)
     if log_to_stdout:
         stdout_level = logging.DEBUG

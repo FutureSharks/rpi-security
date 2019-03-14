@@ -1,5 +1,5 @@
 # To do
 
 - Automatically clean up old photos
-- Tidy up comments
-- Fig syslog formatting `Dec 22 10:40:02 raspberrypi monitor_alarm_state.py:...` should include service name
+- Sometimes motion trigger doesn't run arp_ping before sending images, it sends them immediately.
+- Increase resolution of motion detection and image captured with bounding box as it's currently hard coded to 500 pixel

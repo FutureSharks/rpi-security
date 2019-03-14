@@ -88,7 +88,7 @@ The application uses multithreading in order to process events asynchronously. T
 
 ## Installation, configuration and Running
 
-First ensure your WiFi is [set up correctly](#WiFi-adapter-arrangement))
+First ensure your WiFi is [set up correctly](#WiFi-adapter-arrangement)
 
 Install required packages:
 
@@ -101,7 +101,7 @@ Install open-cv and rpi-security:
 
 ```console
 sudo pip3 install opencv-contrib-python opencv-contrib-python-headless
-sudo pip3 install --no-binary :all: https://github.com/FutureSharks/rpi-security/archive/1.1.zip
+sudo pip3 install --no-binary :all: https://github.com/FutureSharks/rpi-security/archive/1.2.zip
 ```
 
 Reload systemd configuration and enable the service:
@@ -159,48 +159,60 @@ iw dev mon0 del
 
 ## WiFi adapter arrangement
 
-Your WLAN or WiFi adapter must support monitor mode. The Raspberry Pi built-in wireless LAN adapters do **not** support monitor mode by default. Currently the only way to get monitor mode working for the built-in WiFi adapters is to use [nexmon](https://github.com/seemoo-lab/nexmon) and this is not simple.
+Your WiFi adapter must support monitor mode. The Raspberry Pi built-in wireless LAN adapters do **not** currently support monitor mode by default. Currently the only way to get monitor mode working for the built-in WiFi adapters is to use [nexmon](https://github.com/seemoo-lab/nexmon) and this is not simple.
 
 The easiest way to get a monitor mode WiFi adapter is to just buy a RT5370 based adapter. They are cheap at about €6 and easy to find.
 
 The interface used to connect to your WiFi network must be the same interface that supports monitor mode. And this must be the same WiFi network that the mobile phones connect to. This is because there is a packet capture running to listen for mobile phone ARP replies and Wi-Fi probe requests.
 
-If you are using a USB adapter and want to disable your onboard WiFi adapter run this and reboot:
+The default configuration of this application assumes you are using a USB adapter as `phy#1`/`mon0`/`wlan1`.
+
+If you are not using the on-board WiFi adapter then you can stop it connecting to your WiFi network by running this command:
 
 ```console
-sudo sh -c "echo 'blacklist brcmfmac\nblacklist brcmutil' > /etc/modprobe.d/disable-onboard-wifi.conf"
+echo -e "interface wlan0\nnohook wpa_supplicant" >> /etc/dhcpcd.conf
 ```
 
 This shows a working WiFi adapter arrangement:
 
 ```console
-root@raspberrypi:~# iw dev
+root@raspberrypi:~ # iw dev
+phy#1
+	Interface mon0
+		ifindex 4
+		wdev 0x100000002
+		addr 00:0f:60:08:9c:01
+		type monitor
+		txpower 20.00 dBm
+	Interface wlan1
+		ifindex 3
+		wdev 0x100000001
+		addr 00:0f:60:08:9c:01
+		type managed
+		channel 1 (2412 MHz), width: 20 MHz, center1: 2412 MHz
+		txpower 20.00 dBm
 phy#0
-        Interface mon0
-                ifindex 4
-                wdev 0x3
-                addr 00:0f:60:08:9c:01
-                type monitor
-        Interface wlan0
-                ifindex 2
-                wdev 0x1
-                addr 00:0f:60:08:9c:01
-                type managed
-                channel 1 (2412 MHz), width: 40 MHz, center1: 2422 MHz
+	Interface wlan0
+		ifindex 2
+		wdev 0x1
+		addr b8:27:eb:cb:b6:5d
+		type managed
+		channel 34 (5170 MHz), width: 20 MHz, center1: 5170 MHz
+		txpower 31.00 dBm
 ```
 
-You could have interfaces with different names, just be sure to change the `network_interface` parameter in `/etc/rpi-security.conf` and also the reference to `mon0` in [rpi-security.service](https://github.com/FutureSharks/rpi-security/blob/master/etc/rpi-security.service)
+You could have interfaces with different names, just be sure to change the parameters in `/etc/rpi-security-environment`.
 
 ## Older version with PIR sensor motion detection
 
-Currently the camera is used for motion detection. If you want to use the old version with support for a PIR sensor then look at version `0.7`:
-
-https://github.com/FutureSharks/rpi-security/tree/0.7
+Currently the camera is used for motion detection. If you want to use the old version with support for a PIR sensor then look at version [0.7](https://github.com/FutureSharks/rpi-security/tree/0.7)
 
 ## Reboot on connectivity loss
 
 About once every month or two my Raspberry Pi loses the WLAN connection. I created a cron job to check connectivity and reboot if the check fails.
 
 ```console
-echo '*/20 * * * * root /usr/bin/host api.telegram.org > /dev/null 2>1 || (/usr/bin/logger "Rebooting due to connectivity issue"; /sbin/shutdown -r now)' > /etc/cron.d/reboot-on-connection-failure
+wget https://raw.githubusercontent.com/FutureSharks/rpi-security/master/bin/check-telegram-connectivity.sh -O /usr/local/bin/check-telegram-connectivity.sh
+chmod 0755 /usr/local/bin/check-telegram-connectivity.sh
+echo '*/20 * * * * root /usr/local/bin/check-telegram-connectivity.sh' > /etc/cron.d/reboot-on-connection-failure
 ```

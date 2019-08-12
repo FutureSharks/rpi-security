@@ -21,7 +21,7 @@ def capture_packets(rpis):
         packet_mac = set(rpis.mac_addresses) & set([packet[0].addr2, packet[0].addr3])
         packet_mac_str = list(packet_mac)[0]
         rpis.state.update_last_mac(packet_mac_str)
-        logger.debug('Packet detected from {0}'.format(packet_mac_str))
+        logger.debug('Packet detected from {0}. State is {1}'.format(packet_mac_str, rpis.state.current))
     def calculate_filter(mac_addresses):
         mac_string = ' or '.join(mac_addresses)
         filter_text = (

@@ -101,7 +101,7 @@ Install open-cv and rpi-security:
 
 ```console
 sudo pip3 install opencv-contrib-python opencv-contrib-python-headless
-sudo pip3 install --no-binary :all: https://github.com/FutureSharks/rpi-security/archive/1.2.zip
+sudo pip3 install --no-binary :all: https://github.com/FutureSharks/rpi-security/archive/1.3.zip
 ```
 
 Reload systemd configuration and enable the service:
@@ -130,7 +130,7 @@ It runs as a service and logs to syslog. To see the logs check `/var/log/syslog`
 You can start `rpi-security.py` manually with debug output. First add the monitor mode interface:
 
 ```console
-root@raspberrypi:~# iw phy phy0 interface add mon0 type monitor
+root@raspberrypi:~# iw phy phy1 interface add mon0 type monitor
 root@raspberrypi:~# ifconfig mon0 up
 ```
 

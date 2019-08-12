@@ -20,19 +20,18 @@ def process_photos(rpis, camera):
                 logger.debug('Running arp_ping_macs before sending photos...')
                 rpis.arp_ping_macs()
                 time.sleep(2)
-                while True:
+                while not camera.queue.empty():
                     if rpis.state.current != 'armed':
+                        logger.debug('Stopping photo processing as state is now {0} and clearing queue'.format(rpis.state.current))
                         camera.clear_queue()
                         break
                     photo = camera.queue.get()
-                    if photo is None:
-                        break
-                    logger.debug('Processing the photo: {0}'.format(photo))
+                    logger.debug('Processing the photo {0}, state is {1}'.format(photo, rpis.state.current))
                     rpis.state.update_triggered(True)
                     rpis.telegram_send_message('Motioned detected')
                     if rpis.telegram_send_file(photo):
                         camera.queue.task_done()
             else:
                 logger.debug('Stopping photo processing as state is now {0} and clearing queue'.format(rpis.state.current))
-                camera.queue.queue.clear()
+                camera.clear_queue()
         time.sleep(0.1)

@@ -34,10 +34,11 @@ class RpisSecurity(object):
         'photo_size': '1024x768',
         'gif_size': '1024x768',
         'motion_size': '1024x768',
+        'motion_detection_threshold': '1000',
         'camera_mode': 'gif',
         'camera_capture_length': '3',
         'telegram_users_number': '1',
-        'arp_ping_count': '5',
+        'arp_ping_count': '7',
     }
 
     def __init__(self, config_file, data_file):
@@ -133,6 +134,7 @@ class RpisSecurity(object):
         self.photo_size = tuple([int(x) for x in self.photo_size.split('x')])
         self.gif_size = tuple([int(x) for x in self.gif_size.split('x')])
         self.motion_size = tuple([int(x) for x in self.motion_size.split('x')])
+        self.motion_detection_threshold = float(self.motion_detection_threshold)
         self.camera_capture_length = int(self.camera_capture_length)
         self.camera_mode = self.camera_mode.lower()
         self.packet_timeout = int(self.packet_timeout)
@@ -218,8 +220,8 @@ class RpisSecurity(object):
         if 'telegram_chat_ids' not in self.saved_data:
             logger.error('Telegram failed to send file {0} because Telegram chat_id is not set. Send a message to the Telegram bot'.format(file_path))
             return False
-        filename, file_extension = os.path.splitext(file_path)
         try:
+            filename, file_extension = os.path.splitext(file_path)
             if file_extension == '.mp4':
                 for chat_id in self.saved_data['telegram_chat_ids']:
                     self.bot.sendVideo(chat_id=chat_id, video=open(file_path, 'rb'), timeout=30)

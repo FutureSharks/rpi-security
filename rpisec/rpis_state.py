@@ -58,6 +58,8 @@ class RpisState(object):
             return
         now = time.time()
         if now - self.last_packet > (self.rpis.packet_timeout + 20):
+            if self.current != 'armed':
+                logger.debug("No packets detected for {0} seconds, arming".format(self.rpis.packet_timeout + 20))
             self.update_state('armed')
         elif now - self.last_packet > self.rpis.packet_timeout:
             logger.debug("Running arp_ping_macs before arming...")

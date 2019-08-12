@@ -26,7 +26,7 @@ class RpisCamera(object):
     captues photos and GIFs.
     '''
     def __init__(self, photo_size, gif_size, motion_size, camera_vflip,
-            camera_hflip, camera_capture_length,
+            camera_hflip, camera_capture_length, motion_detection_threshold,
             camera_mode):
         self.photo_size = photo_size
         self.gif_size = gif_size
@@ -36,6 +36,7 @@ class RpisCamera(object):
         self.queue = Queue()
         self.motion_framerate = 5
         self.motion_size = motion_size
+        self.motion_detection_threshold = motion_detection_threshold
         self.temp_directory = '/var/tmp'
         self.camera_save_path = '/var/tmp'
         self.camera_capture_length = camera_capture_length
@@ -45,6 +46,7 @@ class RpisCamera(object):
             self.camera = PiCamera()
             self.camera.vflip = self.camera_vflip
             self.camera.hflip = self.camera_hflip
+            self.camera.awb_mode = 'off'
         except Exception as e:
             exit_error('Camera module failed to intialise with error {0}'.format(repr(e)))
 
@@ -55,13 +57,15 @@ class RpisCamera(object):
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
         photo = '{0}/rpi-security-{1}{2}.jpeg'.format(self.camera_save_path, timestamp, filename_extra_suffix)
         try:
-            self.set_normal_settings()
+            self.camera.resolution = self.photo_size
             with self.lock:
                 while self.camera.recording:
                     time.sleep(0.1)
-                time.sleep(2)
                 self.camera.resolution = self.photo_size
                 self.camera.capture(photo, use_video_port=False)
+        except PiCameraRuntimeError as e:
+            logger.error('Failed to take photo, camera error: {0}'.format(repr(e)))
+            return None
         except Exception as e:
             logger.error('Failed to take photo: {0}'.format(repr(e)))
             return None
@@ -75,7 +79,7 @@ class RpisCamera(object):
         temp_jpeg_path = '{0}/rpi-security-{1}-gif-part'.format(self.temp_directory, timestamp)
         jpeg_files = ['{0}-{1}.jpg'.format(temp_jpeg_path, i) for i in range(self.camera_capture_length*3)]
         try:
-            self.set_normal_settings()
+            self.camera.resolution = self.gif_size
             for jpeg in jpeg_files:
                 with self.lock:
                     while self.camera.recording:
@@ -106,34 +110,19 @@ class RpisCamera(object):
         else:
             logger.error('Unsupported camera_mode: {0}'.format(self.camera_mode))
 
-    def set_normal_settings(self):
-        self.camera.awb_mode = 'auto'
-        self.camera.exposure_mode = 'auto'
-
-    def set_motion_settings(self):
-        self.camera.resolution = self.motion_size
-        self.camera.framerate = self.motion_framerate
-        exposure_speed = self.camera.exposure_speed
-        awb_gains = self.camera.awb_gains
-        self.camera.shutter_speed = exposure_speed
-        self.camera.awb_mode = 'off'
-        self.camera.awb_gains = awb_gains
-        self.camera.exposure_mode = 'off'
-
     def start_motion_detection(self, rpis):
-        min_area = 500
         past_frame = None
         logger.debug("Starting motion detection")
+        self.camera.resolution = self.motion_size
         while not self.lock.locked() and rpis.state.current == 'armed':
             stream = io.BytesIO()
-            self.camera.resolution = self.motion_size
             self.camera.capture(stream, format='jpeg', use_video_port=False)
             data = np.fromstring(stream.getvalue(), dtype=np.uint8)
             frame = cv2.imdecode(data, 1)
 
             # if frame is initialized, we have not reach the end of the video
             if frame is not None:
-                past_frame = self.handle_new_frame(frame, past_frame, min_area)
+                past_frame = self.handle_new_frame(frame, past_frame)
             else:
                 logger.error("No more frame")
             rpis.state.check()
@@ -141,7 +130,7 @@ class RpisCamera(object):
         else:
             self.stop_motion_detection()
 
-    def handle_new_frame(self, frame, past_frame, min_area):
+    def handle_new_frame(self, frame, past_frame):
         (h, w) = frame.shape[:2]
         r = 500 / float(w)
         dim = (500, int(h * r))
@@ -175,11 +164,12 @@ class RpisCamera(object):
         # loop over the contours
         for c in cnts:
             # if the contour is too small, ignore it
-            if cv2.contourArea(c) < min_area:
+            countour_area = cv2.contourArea(c)
+            if countour_area < self.motion_detection_threshold:
                 continue
 
-            logger.debug("Motion detected!")
-            # Motion detected because there is a contour that is larger than the specified min_area
+            logger.debug("Motion detected! Motion level is {0} (threshold is {1})".format(countour_area, self.motion_detection_threshold))
+            # Motion detected because there is a contour that is larger than the specified self.motion_detection_threshold
             # compute the bounding box for the contour, draw it on the frame,
             (x, y, w, h) = cv2.boundingRect(c)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import os
 from telegram.ext import Updater, CommandHandler, RegexHandler
 import _thread
 
@@ -37,7 +38,7 @@ def telegram_bot(rpis, camera):
 
     def help(bot, update):
         if check_chat_id(update):
-            bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text='/status: Request status\n/disable: Disable alarm\n/enable: Enable alarm\n/photo: Take a photo\n/gif: Take a gif\n', timeout=10)
+            bot.sendMessage(update.message.chat_id, parse_mode='Markdown', text='/status: Request status\n/disable: Disable alarm\n/enable: Enable alarm\n/photo: Take a photo\n/gif: Take a gif\n/reboot: reboot\n', timeout=10)
 
     def status(bot, update):
         if check_chat_id(update):
@@ -61,6 +62,10 @@ def telegram_bot(rpis, camera):
             gif = camera.take_gif()
             rpis.telegram_send_file(gif)
 
+    def reboot(bot, update):
+        logger.info('Rebooting after receiving reboot command')
+        os.system('reboot')
+
     def error_callback(bot, update, error):
         logger.error('Update "{0}" caused error "{1}"'.format(update, error))
 
@@ -75,6 +80,7 @@ def telegram_bot(rpis, camera):
         dp.add_handler(CommandHandler("enable", enable), group=3)
         dp.add_handler(CommandHandler("photo", photo), group=3)
         dp.add_handler(CommandHandler("gif", gif), group=3)
+        dp.add_handler(CommandHandler("reboot", reboot), group=3)
         dp.add_error_handler(error_callback)
         updater.start_polling(timeout=10)
     except Exception as e:

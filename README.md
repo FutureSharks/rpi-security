@@ -75,7 +75,7 @@ You can send the Telegram bot commands that trigger certain actions.
 The application is written in python 3 and large parts of the functionality are provided by the following pip packages:
 
   - [picamera](https://github.com/waveform80/picamera)
-  - [kamene](https://github.com/phaethon/kamene)
+  - [scapy](https://github.com/secdev/scapy)
   - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
   - [opencv-python](https://github.com/skvark/opencv-python)
 

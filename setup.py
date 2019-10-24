@@ -30,7 +30,7 @@ setup(
         'netaddr',
         'netifaces',
         'pyyaml',
-        'kamene',
+        'scapy==2.4.3',
         'Pillow',
         'opencv-contrib-python',
         'opencv-contrib-python-headless',

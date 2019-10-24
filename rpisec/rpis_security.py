@@ -6,12 +6,12 @@ import time
 import yaml
 import logging
 
-logging.getLogger("kamene.runtime").setLevel(logging.ERROR)
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 from configparser import SafeConfigParser
 from netaddr import IPNetwork
 from netifaces import ifaddresses
-from kamene.all import srp, Ether, ARP
+from scapy.all import srp, Ether, ARP
 from telegram import Bot as TelegramBot
 from .exit_clean import exit_error
 from .rpis_state import RpisState

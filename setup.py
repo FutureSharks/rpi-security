@@ -22,7 +22,7 @@ setup(
     install_requires = [
         'python-telegram-bot==12.2.0',
         'picamera==1.13',
-        'imutils',
+        'imutils==0.5.2',
         'numpy',
         'configparser',
         'requests',

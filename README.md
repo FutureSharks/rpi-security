@@ -4,10 +4,10 @@ A simple security system to run on a [Raspberry Pi](https://www.raspberrypi.org/
 
 Features:
 
-  - Motion detection and photo capture using the camera.
-  - Mobile notifications with photos.
-  - Detects when you are home and arms or disarms automatically.
-  - Can be remotely disabled or queried using [Telegram](https://telegram.org/).
+  - Motion detection and photo capture using the camera
+  - Mobile notifications with photos
+  - Detects when you are home and arms or disarms automatically
+  - Can be remotely controlled using [Telegram](https://telegram.org/)
 
 <a href="#"><img src="https://raw.githubusercontent.com/FutureSharks/rpi-security/master/images/rpi-security-1.jpg" width="600"></a>
 
@@ -29,21 +29,20 @@ Software requirements:
 
 ## How it works
 
-#### Automatic presence detection
+### Automatic presence detection
 
 One of my main goals was to have the system completely automatic. I didn't want to have to arm or disarm it when leaving or arriving home. I figured the easiest way to achieve this was to try and detect the mobile phones of the home occupants. Conceptually this was quite simple but in practice it was the most challenging part because:
 
   - Capturing all packets on a Wi-Fi interface is too resource intensive.
-  - There are presently no good 5Ghz USB Wi-Fi adapters that support monitor mode. This means packet monitoring is restricted to 2.4Ghz where most modern mobile phones use 5Ghz now.
   - Mobile phones are not always online and sending packets over Wi-Fi. Sometimes they stay unconnected for 15 minutes or longer.
-  - Even with 99% accuracy false alarms are annoying.
+  - Even with 99% accuracy, false alarms are annoying.
 
-After much testing I used an approach that mixes active (ARP scan) and passive (packet capture) detection over the Wi-Fi adapter based on knowing the MAC addresses of the mobile phones. The mobile phone MAC addresses are set in the configuration and rpi-security captures packets on a monitor mode interface with the following filter:
+After much testing I used an approach that mixes active (ARP ping) and passive (packet capture) detection over the Wi-Fi adapter based on knowing the MAC addresses of the mobile phones. The mobile phone MAC addresses are set in the configuration and rpi-security captures packets on a monitor mode interface with the following filter:
 
 1. Wi-Fi probe requests from any of the configured MACs.
 2. Any packets sent from the configured MACs to the host running rpi-security.
 
-The application resets a counter when packets are detected and if the counter goes longer than ~10 minutes the system is armed. To eliminate the many false alarms, when transitioning from armed to disarmed state or vice versa, the application performs an ARP scan directed at each of the configured MAC addresses to be sure they are definitely online or offline. Both iOS and Android will respond to this ARP scan 99% of the time where a ICMP ping is quite unreliable. By combining the capture of Wi-Fi probe requests and using ARP scanning, the Wi-Fi frequency doesn't matter because mobile phones send probe requests on both frequencies and ARP scan works across both frequencies too.
+The application resets a counter when packets are detected and if the counter goes longer than ~10 minutes the system is armed. To eliminate the many false alarms, when transitioning between an armed/disarmed state, the application performs an ARP scan directed at each of the configured MAC addresses to be sure they are definitely online or offline. Both iOS and Android will respond to this ARP scan 99% of the time where a ICMP ping is quite unreliable. By combining the capture of Wi-Fi probe requests and using ARP scanning, the Wi-Fi frequency doesn't matter because mobile phones send probe requests on both frequencies and ARP scan works across both frequencies too.
 
 #### Motion detection
 
@@ -161,7 +160,12 @@ iw dev mon0 del
 
 Your WiFi adapter must support monitor mode. The Raspberry Pi built-in wireless LAN adapters do **not** currently support monitor mode by default. Currently the only way to get monitor mode working for the built-in WiFi adapters is to use [nexmon](https://github.com/seemoo-lab/nexmon) and this is not simple.
 
-The easiest way to get a monitor mode WiFi adapter is to just buy a RT5370 based adapter. They are cheap at about €6 and easy to find.
+The easiest way to get a monitor mode WiFi adapter is to just buy a USB adapter that supports it. Currently the best options are:
+
+- RT5370: very cheap, easy to find but only supports 2.4Ghz
+- RT3572: more expensive, hard to find but supports both 2.4Ghz and 5Ghz
+
+Most modern phones and routers use 5Ghz now so results could be unreliable if your adapter only supports 2.4Ghz.
 
 The interface used to connect to your WiFi network must be the same interface that supports monitor mode. And this must be the same WiFi network that the mobile phones connect to. This is because there is a packet capture running to listen for mobile phone ARP replies and Wi-Fi probe requests.
 

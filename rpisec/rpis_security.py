@@ -6,12 +6,12 @@ import time
 import yaml
 import logging
 
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+logging.getLogger("kamene.runtime").setLevel(logging.ERROR)
 
 from configparser import SafeConfigParser
 from netaddr import IPNetwork
 from netifaces import ifaddresses
-from scapy.all import srp, Ether, ARP
+from kamene.all import srp, Ether, ARP
 from telegram import Bot as TelegramBot
 from .exit_clean import exit_error
 from .rpis_state import RpisState
@@ -63,7 +63,7 @@ class RpisSecurity(object):
         result = None
         try:
             with open(self.data_file, 'r') as stream:
-                result = yaml.load(stream) or {}
+                result = yaml.load(stream, Loader=yaml.FullLoader)
         except Exception as e:
             logger.error('Failed to read data file {0}: {1}'.format(self.data_file, repr(e)))
         else:

@@ -2,10 +2,10 @@
 
 import _thread
 import logging
-from scapy.all import sniff
-from scapy.all import conf as scapy_conf
-scapy_conf.promisc=0
-scapy_conf.sniff_promisc=0
+from kamene.all import sniff
+from kamene.all import conf as kamene_conf
+kamene_conf.promisc=0
+kamene_conf.sniff_promisc=0
 
 
 logger = logging.getLogger()
@@ -13,10 +13,10 @@ logger = logging.getLogger()
 
 def capture_packets(rpis):
     """
-    This function uses scapy to sniff packets for our MAC addresses and updates
+    This function uses kamene to sniff packets for our MAC addresses and updates
     the alarm state when packets are detected.
     """
-    logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+    logging.getLogger("kamene.runtime").setLevel(logging.ERROR)
     def update_time(packet):
         packet_mac = set(rpis.mac_addresses) & set([packet[0].addr2, packet[0].addr3])
         packet_mac_str = list(packet_mac)[0]
@@ -36,5 +36,5 @@ def capture_packets(rpis):
         try:
             sniff(iface=rpis.network_interface, store=0, prn=update_time, filter=calculate_filter(rpis.mac_addresses))
         except Exception as e:
-            logger.error('scapy failed to sniff packets with error {0}'.format(repr(e)))
+            logger.error('kamene failed to sniff packets with error {0}'.format(repr(e)))
             _thread.interrupt_main()
